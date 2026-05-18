@@ -9,16 +9,14 @@ homage to the project we port from.
 ## Motivation
 
 Jimm exists because we needed Julia's SciML ecosystem together with
-modern vision backbones, and Python does not have a peer for SciML.
-The original stack was vision encoders feeding `torchdiffeq` in
-PyTorch, which worked but left a lot of the differential-equation,
-sensitivity-analysis, and probabilistic-programming tooling that
-Julia is genuinely best in class at on the table. Moving the
-diff-eq side to Julia meant the vision side had to come too. Jimm
+modern pretrained vision backbones, and Python does not have a peer
+for SciML. The original stack was vision encoders feeding `torchdiffeq`
+in PyTorch, which works but leaves much to be desired. Moving the
+DiffEQ side to Julia meant the vision side had to come too. Jimm
 started as a one-off port of a single backbone for that internal use
 case and snowballed. If your work also sits at the intersection of
 pretrained vision encoders and the rest of the SciML stack, Jimm aims
-to make Julia a complete option for that workload.
+to make Julia a more complete option for that workload.
 
 ## Status and caveats
 
@@ -33,7 +31,7 @@ parity tests do not exercise (custom training loops, mixed-precision
 paths, exotic input shapes). File issues and PRs; we will fix them.
 
 The package is also not at 1:1 parity with the full `timm` catalog and
-is not likely to be. `timm` ships hundreds of architectures and
+is not likely to ever be. `timm` ships hundreds of architectures and
 thousands of pretrained checkpoints; Jimm tracks only the subset its
 contributors actually use. New backbones land via PR (see
 [Contributing a new backbone](#contributing-a-new-backbone)).
@@ -322,3 +320,9 @@ deliberately taken from `timm` so pretrained weights load directly. Where
 `timm` itself credits an earlier upstream (e.g. Google's Big Transfer
 release for BiT ResNet), that attribution chain is preserved in
 [`NOTICE`](NOTICE).
+
+## Acknowledgements
+
+Thanks to Ross Wightman for `timm`, to the Julia ML ecosystem
+maintainers whose work makes a port like this plausible, and to my
+employer [Medical Metrics Inc.](https://medicalmetrics.com/).
