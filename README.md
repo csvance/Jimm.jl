@@ -6,6 +6,38 @@ Julia ports of [`timm`](https://github.com/huggingface/pytorch-image-models)
 directly from HuggingFace Hub in `.safetensors` format. The name is an
 homage to the project we port from.
 
+## Motivation
+
+Jimm exists because we needed Julia's SciML ecosystem together with
+modern vision backbones, and Python does not have a peer for SciML.
+The original stack was vision encoders feeding `torchdiffeq` in
+PyTorch, which worked but left a lot of the differential-equation,
+sensitivity-analysis, and probabilistic-programming tooling that
+Julia is genuinely best in class at on the table. Moving the
+diff-eq side to Julia meant the vision side had to come too. Jimm
+started as a one-off port of a single backbone for that internal use
+case and snowballed. If your work also sits at the intersection of
+pretrained vision encoders and the rest of the SciML stack, Jimm aims
+to make Julia a complete option for that workload.
+
+## Status and caveats
+
+Most of Jimm was written by AI agents driving the porting workflow
+encoded in `.claude/skills/timm-to-lux/`, with human review at each
+phase and the parity tests (see [acceptance
+criteria](#acceptance-criteria) below) as the correctness backstop. The
+code is already being used in real projects, so the registered
+backbones work for forward inference with the released weights. That
+said: **expect bugs and rough edges**, especially around anything the
+parity tests do not exercise (custom training loops, mixed-precision
+paths, exotic input shapes). File issues and PRs; we will fix them.
+
+The package is also not at 1:1 parity with the full `timm` catalog and
+is not likely to be. `timm` ships hundreds of architectures and
+thousands of pretrained checkpoints; Jimm tracks only the subset its
+contributors actually use. New backbones land via PR (see
+[Contributing a new backbone](#contributing-a-new-backbone)).
+
 ## What Jimm is
 
 Jimm is a strict Lux.jl port of `timm`: same architectures, same
@@ -27,9 +59,6 @@ cause a Jimm model to diverge numerically from its `timm` counterpart is
 out of scope.
 
 ## Available backbones
-
-The current variants reflect what contributors to Jimm use. New backbones land 
-via PR (see [Contributing a new backbone](#contributing-a-new-backbone)).
 
 | family            | constructor    | num weights | weight license     | docs                                                                 |
 |-------------------|----------------|-------------|--------------------|----------------------------------------------------------------------|
