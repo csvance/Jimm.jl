@@ -1,0 +1,23 @@
+# Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+deps/build.log
+Manifest.toml
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+uv.lock
+
+# Parity fixtures (regenerate from test/parity/dump_*.py)
+data/parity/*.h5
+
+# Cached HuggingFace weights when callers cache inside the package tree
+weights/
+
+# Editor
+.vscode/
+.idea/

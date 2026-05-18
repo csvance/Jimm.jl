@@ -1,0 +1,14 @@
+[project]
+name = "jimm-tools"
+version = "0.0.1"
+description = "Python sidecar for Jimm.jl: dumps timm parity fixtures, validates safetensors round-trips."
+requires-python = ">=3.12"
+dependencies = [
+    "timm>=1.0.24",
+    "torch>=2.10.0",
+    "numpy>=2.4.2",
+    "h5py>=3.16.0",
+    "safetensors>=0.7.0",
+    "pillow>=11.0.0",
+    "huggingface-hub>=0.30.0",
+]
