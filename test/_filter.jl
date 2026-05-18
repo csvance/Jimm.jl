@@ -3,7 +3,8 @@
 # Two environment variables control what runs:
 #
 #   JIMM_TEST_FAMILIES  comma-separated family names. Recognized values are
-#                       "infra", "bit", and "convnextv2". Empty / unset means
+#                       "infra", "bit", "resnet", "convnextv2", and "convnext".
+#                       Empty / unset means
 #                       all families run, unless JIMM_TEST_VARIANTS is set
 #                       (in which case the family set is inferred from the
 #                       requested variants and infra is dropped).
@@ -26,7 +27,7 @@
 #   JIMM_TEST_VARIANTS=convnextv2_atto_fcmae \
 #       julia --project -e 'using Pkg; Pkg.test()'
 
-const _JIMM_DEFAULT_FAMILIES = ("infra", "bit", "convnextv2", "convnext")
+const _JIMM_DEFAULT_FAMILIES = ("infra", "bit", "resnet", "convnextv2", "convnext")
 
 function _jimm_env_csv(name::AbstractString)
     raw = get(ENV, name, "")
@@ -46,6 +47,7 @@ function _jimm_variant_family(v::Symbol)
     startswith(s, "convnextv2_")       && return "convnextv2"
     startswith(s, "convnext_")         && return "convnext"
     startswith(s, "resnetv2_") && occursin("_bit_", s) && return "bit"
+    startswith(s, "resnet")            && return "resnet"
     return ""
 end
 

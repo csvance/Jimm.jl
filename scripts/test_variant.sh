@@ -12,6 +12,7 @@
 # Examples:
 #   scripts/test_variant.sh convnextv2_atto_fcmae
 #   scripts/test_variant.sh convnextv2_atto_fcmae --in-chans 1
+#   scripts/test_variant.sh resnet18_a1_in1k
 #   scripts/test_variant.sh resnetv2_50x1_bit_goog_in21k
 #
 # `--force` re-dumps the fixture even if it already exists.
@@ -80,9 +81,12 @@ case "$variant" in
     resnetv2_*_bit_*)
         sidecar="test/parity/dump_resnetv2_bit_io.py"
         ;;
+    resnet*)
+        sidecar="test/parity/dump_resnet_io.py"
+        ;;
     *)
         echo "Could not resolve family for variant '$variant'." >&2
-        echo "Known prefixes: convnextv2_*, convnext_*, resnetv2_*_bit_*." >&2
+        echo "Known prefixes: convnextv2_*, convnext_*, resnet*, resnetv2_*_bit_*." >&2
         exit 2
         ;;
 esac
