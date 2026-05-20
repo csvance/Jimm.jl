@@ -1,0 +1,11 @@
+[Unit]
+Description=Trigger Jimm.jl nightly full parity sweep
+Requires=jimm-ci-nightly.service
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

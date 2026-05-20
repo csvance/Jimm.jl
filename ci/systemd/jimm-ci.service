@@ -1,0 +1,48 @@
+[Unit]
+Description=Jimm.jl CI webhook listener
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gh-runner
+Group=gh-runner
+WorkingDirectory=/opt/jimm-ci/Jimm.jl/ci
+
+Environment=JIMM_CI_STATE_DIR=/var/lib/jimm-ci
+Environment=JIMM_CI_APP_ID=REPLACE_WITH_APP_ID
+Environment=JIMM_CI_INSTALLATION_ID=REPLACE_WITH_INSTALLATION_ID
+Environment=JIMM_CI_PRIVATE_KEY_FILE=/etc/jimm-ci/app.pem
+Environment=JIMM_CI_WEBHOOK_SECRET_FILE=/etc/jimm-ci/webhook-secret
+Environment=JIMM_CI_HF_TOKEN_FILE=/etc/jimm-ci/hf-token
+Environment=JIMM_CI_REPO_OWNER=REPLACE_WITH_OWNER
+Environment=JIMM_CI_REPO_NAME=Jimm.jl
+Environment=JIMM_CI_HOST=127.0.0.1
+Environment=JIMM_CI_PORT=8080
+Environment=JIMM_CI_PUBLIC_URL=https://jimm-ci.REPLACE_WITH_DOMAIN
+Environment=JIMM_CI_JULIA=/usr/local/bin/julia
+Environment=JULIA_NUM_THREADS=4
+
+ExecStart=/usr/bin/env uv run --project /opt/jimm-ci/Jimm.jl/ci jimm-ci
+
+Restart=on-failure
+RestartSec=5s
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=120
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/jimm-ci /opt/jimm-ci/Jimm.jl
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
