@@ -22,6 +22,11 @@ if family_enabled("infra")
         @test isdefined(Jimm.Models, :bit_resnetv2_mapping)
         @test isdefined(Jimm.Models, :load_bit_resnetv2_pretrained)
         @test isdefined(Jimm.Models, :BIT_VARIANTS)
+        @test isdefined(Jimm.Models, :resnet)
+        @test isdefined(Jimm.Models, :resnet_mapping)
+        @test isdefined(Jimm.Models, :resnet_state_mapping)
+        @test isdefined(Jimm.Models, :load_resnet_pretrained)
+        @test isdefined(Jimm.Models, :RESNET_VARIANTS)
         @test isdefined(Jimm.Models, :convnextv2)
         @test isdefined(Jimm.Models, :convnextv2_mapping)
         @test isdefined(Jimm.Models, :load_convnextv2_pretrained)
@@ -39,6 +44,10 @@ end
 
 if family_enabled("bit")
     include("test_bit_resnet.jl")
+end
+
+if family_enabled("resnet")
+    include("test_resnet.jl")
 end
 
 if family_enabled("convnextv2")

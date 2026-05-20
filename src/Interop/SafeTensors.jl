@@ -24,7 +24,9 @@ function load_safetensors_state_dict(path::AbstractString;
     out = Dict{String, Array{Float32}}()
     for (k, v) in raw
         a = Float32.(v)
-        if reverse_axes && ndims(a) > 1
+        if !(a isa AbstractArray)
+            a = fill(Float32(a))
+        elseif reverse_axes && ndims(a) > 1
             a = permutedims(a, ntuple(i -> ndims(a) + 1 - i, ndims(a)))
         end
         out[k] = a

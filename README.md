@@ -61,6 +61,7 @@ out of scope.
 | family            | constructor    | num weights | weight license     | docs                                                                 |
 |-------------------|----------------|-------------|--------------------|----------------------------------------------------------------------|
 | BiT ResNetV2      | `bit_resnetv2` | 15          | Apache 2.0         | [src/Models/ResNetV2/README.md](src/Models/ResNetV2/README.md)       |
+| ResNet            | `resnet`       | 5           | Apache 2.0         | [src/Models/ResNet/README.md](src/Models/ResNet/README.md)           |
 | ConvNeXt          | `convnext`     | 19          | Apache 2.0         | [src/Models/ConvNeXt/README.md](src/Models/ConvNeXt/README.md)       |
 | ConvNeXt (DINOv3) | `convnext`     | 4           | DINOv3 License ⚠️  | [src/Models/ConvNeXt/README.md](src/Models/ConvNeXt/README.md)       |
 | ConvNeXt V2       | `convnextv2`   | 26          | CC BY-NC 4.0 ⚠️    | [src/Models/ConvNeXtV2/README.md](src/Models/ConvNeXtV2/README.md)   |
@@ -175,7 +176,7 @@ files:
   variant key is enough to scope a run.
 - `JIMM_TEST_FAMILIES`: comma-separated list of test families. Recognized
   values are `infra` (scaffold, HuggingFace download, init recipes), `bit`,
-  `convnext`, and `convnextv2`. When set, this is authoritative and
+  `resnet`, `convnext`, and `convnextv2`. When set, this is authoritative and
   overrides the family inference described above. Unset and
   `JIMM_TEST_VARIANTS` also unset means every family runs.
 
@@ -204,6 +205,9 @@ For the common case (one variant, dump-if-missing-then-test),
 ```
 # Resolve family, dump fixture if absent, run only this variant's testset:
 scripts/test_variant.sh convnextv2_atto_fcmae
+
+# Classic ResNet18:
+scripts/test_variant.sh resnet18_a1_in1k
 
 # Same, but for the in_chans=1 parity test (dumps the _in1c fixture):
 scripts/test_variant.sh convnextv2_atto_fcmae --in-chans 1

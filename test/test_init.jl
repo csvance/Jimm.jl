@@ -1,4 +1,4 @@
-# Statistical sanity checks that `Lux.setup` on `bit_resnetv2` and
+# Statistical sanity checks that `Lux.setup` on `bit_resnetv2`, `resnet`, and
 # `convnextv2` produces weight distributions matching timm's
 # `_init_weights` recipes. We can't match PyTorch's RNG bit-for-bit, so
 # tolerances are generous; the goal is to catch a regression to
@@ -44,6 +44,46 @@ end
         @test all(ps.final_norm.gn.bias .== 0)
         @test all(ps.stage3.layer_2.norm1.gn.scale .== 1)
         @test all(ps.stage3.layer_2.norm1.gn.bias .== 0)
+    end
+
+    @testset "ResNet18" begin
+        model = resnet(:resnet18_a1_in1k; in_chans = 3, num_classes = 1000)
+        ps, _ = Lux.setup(Xoshiro(0), model)
+
+        # Stem: 7x7, in=3, out=64. Kaiming fan_out -> std = sqrt(2/(64*49)).
+        w_stem = ps.conv1.weight
+        @test size(w_stem) == (7, 7, 3, 64)
+        @test _approx_std(std(w_stem), sqrt(2 / (64 * 7 * 7)))
+
+        # BasicBlock convs use Kaiming fan_out; BN affine is 1/0 except the
+        # final BN in each block, which timm zero-initializes.
+        w_block = ps.layer3.layer_1.conv1.weight
+        kw, kh, _, oc = size(w_block)
+        @test _approx_std(std(w_block), sqrt(2 / (oc * kw * kh)))
+        @test all(ps.bn1.scale .== 1)
+        @test all(ps.bn1.bias .== 0)
+        @test all(ps.layer1.layer_1.bn1.scale .== 1)
+        @test all(ps.layer1.layer_1.bn1.bias .== 0)
+        @test all(ps.layer1.layer_1.bn2.scale .== 0)
+        @test all(ps.layer1.layer_1.bn2.bias .== 0)
+    end
+
+    @testset "ResNet50" begin
+        model = resnet(:resnet50_a1_in1k; in_chans = 3, num_classes = 1000)
+        ps, _ = Lux.setup(Xoshiro(0), model)
+
+        @test size(ps.layer1.layer_1.conv1.weight) == (1, 1, 64, 64)
+        @test size(ps.layer1.layer_1.conv2.weight) == (3, 3, 64, 64)
+        @test size(ps.layer1.layer_1.conv3.weight) == (1, 1, 64, 256)
+        @test size(ps.layer1.layer_1.downsample_conv.weight) == (1, 1, 64, 256)
+
+        w_block = ps.layer2.layer_1.conv2.weight
+        kw, kh, _, oc = size(w_block)
+        @test _approx_std(std(w_block), sqrt(2 / (oc * kw * kh)))
+        @test all(ps.layer1.layer_1.bn1.scale .== 1)
+        @test all(ps.layer1.layer_1.bn2.scale .== 1)
+        @test all(ps.layer1.layer_1.bn3.scale .== 0)
+        @test all(ps.layer1.layer_1.bn3.bias .== 0)
     end
 
     @testset "ConvNeXtV2 atto (ft_in1k)" begin

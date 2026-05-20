@@ -21,6 +21,8 @@ export std_conv, layernorm2d, grn_layer,
 # Models
 export bit_resnetv2, bit_resnetv2_mapping, load_bit_resnetv2_pretrained,
        BiTVariant, BIT_VARIANTS,
+       resnet, resnet_mapping, resnet_state_mapping, load_resnet_pretrained,
+       ResNetVariant, RESNET_VARIANTS,
        convnextv2, convnextv2_mapping, load_convnextv2_pretrained,
        ConvNeXtV2Variant, CONVNEXTV2_VARIANTS,
        convnext, convnext_mapping, load_convnext_pretrained,
