@@ -5,11 +5,23 @@ CurrentModule = Jimm
 # Testing
 
 Jimm's correctness story rests on parity tests: for every registered
-variant, the Julia forward must match `timm`'s forward to within
-`TOL = 1f-3` on the same input and weights. This page covers the
-layout of the test suite, how to scope a run to a single variant,
-how to dump the HDF5 fixture a parity test consumes, and how
-production CI runs the sweep.
+variant, the Julia forward must match `timm`'s forward on the same
+input and weights. The bar is two-tier:
+
+- **Logits** are checked at an absolute max-abs-diff under
+  `TOL = 1f-3`. The classifier head is shallow and tightly bounded,
+  so an absolute ceiling is the meaningful end-to-end guarantee.
+- **Features** (`forward_features` and the `in_chans=1` companion)
+  are checked at a relative bar, `max-abs-diff / max-abs(timm ref)`
+  under `FEATURES_RTOL = 1f-3`. Deep backbones accumulate FP32
+  rounding through dozens of stages, which inflates raw pre-norm
+  feature diffs by a factor that scales with depth and channel
+  width, even when downstream logits stay tight. A relative bar
+  keeps the check scale-free across tiny through huge variants.
+
+This page covers the layout of the test suite, how to scope a run
+to a single variant, how to dump the HDF5 fixture a parity test
+consumes, and how production CI runs the sweep.
 
 ## Test layout
 

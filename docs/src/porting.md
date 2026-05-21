@@ -21,15 +21,18 @@ A new backbone is mergeable when all four hold:
 
 1. **Pretrained parity.** Forward output of the Lux model with weights
    loaded via `load_<family>_pretrained` matches `timm`'s forward
-   output on the same input to within the test suite's `TOL`
-   (currently `1f-3` max-abs-diff) for features (`num_classes = 0`)
-   and logits (`num_classes > 0`). Existing models land well inside
-   this: BiT ResNetV2-50 features around `1.5e-4`, its logits around
-   `2e-5`; ConvNeXtV2 atto comparable.
+   output on the same input. The bar is two-tier: **logits** are
+   checked at an absolute max-abs-diff under `TOL = 1f-3`, and
+   **features** (`num_classes = 0`, and the `in_chans = 1` companion)
+   are checked at a relative bar `max-abs-diff / max-abs(timm ref)`
+   under `FEATURES_RTOL = 1f-3`. Existing models land well inside
+   this: BiT ResNetV2-50 features around `1.5e-4` absolute (well
+   under the relative bar at typical feature magnitudes), its logits
+   around `2e-5`; ConvNeXtV2 atto comparable.
 2. **Random-init parity.** With the Lux model initialized using the
    same `_init_weights` recipe `timm` uses for the family, and `timm`
-   initialized with the same RNG seed, forward outputs match to
-   within the same `TOL`. See `_CN2_INIT` at
+   initialized with the same RNG seed, forward outputs match the
+   same logits and features bars. See `_CN2_INIT` at
    `src/Models/ConvNeXtV2/Model.jl` (`truncated_normal(mean = 0f0,
    std = 0.02f0)` mirroring timm's `trunc_normal_(std = 0.02)`) for a
    worked example.
@@ -54,14 +57,21 @@ activations. The shallower head (one pool plus one Dense) sits
 closer to `1e-5` because almost no new accumulation happens after
 the backbone.
 
-`TOL = 1f-3` is the realistic test gate: tight enough to catch the
-silent-divergence failure modes that actually matter
+The test gates are `TOL = 1f-3` (absolute, logits) and
+`FEATURES_RTOL = 1f-3` (relative, features). Both are tight enough
+to catch the silent-divergence failure modes that actually matter
 (cross-correlation vs convolution, population vs sample variance,
 GELU approximation mismatch, axis permutations, missing norm
 `epsilon`), and loose enough not to fail on legitimate float32
-reordering. If your port reports a max-abs-diff in the `1e-2` range
-or higher, that is a real bug, not round-off; bisect it with the
-per-stage parity fixtures described below.
+reordering. The features bar is relative because raw pre-norm
+features on deep / wide backbones (large and xlarge ConvNeXt, huge
+ConvNeXtV2) drift by `~1e-3` to `~2e-3` absolute even when their
+downstream logits stay near `1e-5` after the LayerNorm + classifier
+squashes them; a relative bar keeps the check scale-free across
+tiny through huge variants. If your port reports a logits
+max-abs-diff in the `1e-2` range, or a features relative diff in
+the `1e-2` range or higher, that is a real bug, not round-off;
+bisect it with the per-stage parity fixtures described below.
 
 ## Reference example
 
@@ -252,7 +262,10 @@ st = Lux.testmode(st)
 ps = Jimm.Interop.apply_state_dict(ps, data.state_dict,
                                    <family>_mapping(data.state_dict, variant))
 y, _ = model(data.input, ps, st)
-@test isapprox(y, data.output["features"]; rtol = 1f-3, atol = 1f-4)
+expected = data.output["features"]
+diff = maximum(abs.(y .- expected))
+rel  = diff / max(maximum(abs.(expected)), eps(Float32))
+@test rel < 1f-3
 ```
 
 The convenience wrapper `scripts/test_variant.sh` runs exactly this
