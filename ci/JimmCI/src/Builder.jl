@@ -229,6 +229,7 @@ function _env_for_family(cfg::Config, family::AbstractString, variant::AbstractS
     env["JULIA_NUM_THREADS"]  = get(ENV, "JULIA_NUM_THREADS", "4")
     env["HF_HUB_CACHE"]       = cfg.hf_cache
     env["JULIA_DEPOT_PATH"]   = cfg.julia_depot
+    env["JULIA_LOAD_PATH"]    = "@:@v#.#:@stdlib"
     env["JIMM_TEST_FAMILIES"] = String(family)
     env["JIMM_TEST_VARIANTS"] = String(variant)
     if cfg.hf_token !== nothing

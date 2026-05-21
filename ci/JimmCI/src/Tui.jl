@@ -2,7 +2,7 @@ module Tui
 
 using Dates
 using Tachikoma
-import Tachikoma: view, update!
+import Tachikoma: view, update!, should_quit, task_queue
 
 using ..ConfigMod
 using ..GitHubAppMod
