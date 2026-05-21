@@ -14,8 +14,8 @@ in `.safetensors` format. The name is an homage to the project we port from.
 
 ## Available backbones
 
-| Family                      | Constructor    | Weights | Weight License             | Commercial Use |
-|-----------------------------|----------------|---------|----------------------------|----------------|
+| Family                      | Constructor    | Weights | Weight License                     | Commercial Use |
+|-----------------------------|----------------|---------|------------------------------------|----------------|
 | [ResNet][resnet]            | `resnet`       | 5       | [Apache 2.0][license-apache2]      | ✅              |
 | [BiT ResNetV2][bit]         | `bit_resnetv2` | 15      | [Apache 2.0][license-apache2]      | ✅              |
 | [ConvNeXt][convnextv1]      | `convnext`     | 19      | [Apache 2.0][license-apache2]      | ✅              |
@@ -65,18 +65,33 @@ maintainers whose work makes a port like this plausible, and to my
 employer [Medical Metrics Inc.][medicalmetrics].
 
 [timm]: https://github.com/huggingface/pytorch-image-models
+
 [lux]: https://lux.csail.mit.edu/
+
 [docs]: https://csvance.github.io/Jimm.jl/
+
 [docs-getting-started]: https://csvance.github.io/Jimm.jl/getting_started/
+
 [docs-porting]: https://csvance.github.io/Jimm.jl/porting/
+
 [docs-testing]: https://csvance.github.io/Jimm.jl/testing/
+
 [docs-api]: https://csvance.github.io/Jimm.jl/api/
+
 [medicalmetrics]: https://medicalmetrics.com/
+
 [license-apache2]: https://www.apache.org/licenses/LICENSE-2.0
+
 [license-dinov3]: https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md
+
 [license-convnextv2]: https://github.com/facebookresearch/ConvNeXt-V2/blob/main/LICENSE
+
 [bit]: https://arxiv.org/abs/1912.11370
+
 [convnextv1]: https://arxiv.org/abs/2201.03545
+
 [dinov3]: https://arxiv.org/abs/2508.10104
+
 [convnextv2]: https://arxiv.org/abs/2301.00808
+
 [resnet]: https://arxiv.org/abs/1512.03385
