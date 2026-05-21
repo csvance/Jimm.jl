@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 200" role="img" aria-label="Jimm.jl logo">
+  <title>Jimm.jl</title>
+  <desc>Jimm.jl logo: three isometric cubes in Julia's red, green, and purple — representing the three channels of an image tensor — arranged in a triangle, set beside the Jimm.jl wordmark in matching Julia colors.</desc>
+
+  <defs>
+    <!-- Larger isometric cubes for the standalone mark. Edge ~46, dx=40, dy=23. -->
+    <symbol id="cube-red-lg" overflow="visible">
+      <polygon points="0,-23 40,-46 80,-23 40,0" fill="#E5675E" stroke="#5A130F" stroke-width="1.5" stroke-linejoin="round"/>
+      <polygon points="40,0 80,-23 80,23 40,46"  fill="#CB3C33" stroke="#5A130F" stroke-width="1.5" stroke-linejoin="round"/>
+      <polygon points="0,-23 40,0 40,46 0,23"    fill="#8E261F" stroke="#5A130F" stroke-width="1.5" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="cube-green-lg" overflow="visible">
+      <polygon points="0,-23 40,-46 80,-23 40,0" fill="#5BC247" stroke="#143E0D" stroke-width="1.5" stroke-linejoin="round"/>
+      <polygon points="40,0 80,-23 80,23 40,46"  fill="#389826" stroke="#143E0D" stroke-width="1.5" stroke-linejoin="round"/>
+      <polygon points="0,-23 40,0 40,46 0,23"    fill="#22651A" stroke="#143E0D" stroke-width="1.5" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="cube-purple-lg" overflow="visible">
+      <polygon points="0,-23 40,-46 80,-23 40,0" fill="#B273C9" stroke="#3D1F55" stroke-width="1.5" stroke-linejoin="round"/>
+      <polygon points="40,0 80,-23 80,23 40,46"  fill="#9558B2" stroke="#3D1F55" stroke-width="1.5" stroke-linejoin="round"/>
+      <polygon points="0,-23 40,0 40,46 0,23"    fill="#643A7A" stroke="#3D1F55" stroke-width="1.5" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+
+  <!-- ====== CUBE MARK (triangular) ======
+       Cluster centered around (115, 110). Cube spans:
+         x: [ox, ox+80], y: [oy-46, oy+46].
+       Top cube (purple) centered horizontally: ox = 115 - 40 = 75, apex oy = 86
+       Bottom-left (green): ox = 75 - 54 = 21, oy = 134
+       Bottom-right (red):  ox = 75 + 54 = 129, oy = 134 -->
+  <g>
+    <use href="#cube-purple-lg" x="75"  y="86"/>
+    <use href="#cube-green-lg"  x="21"  y="134"/>
+    <use href="#cube-red-lg"    x="129" y="134"/>
+  </g>
+
+  <!-- ====== WORDMARK ======
+       Color plan (each glyph outlined to match the cubes' stroke language):
+         Jimm  → Julia purple (#9558B2) / stroke #3D1F55
+         .     → neutral gray (drawn as circle) / stroke #3A4252
+         j     → Julia red    (#CB3C33) / stroke #5A130F
+         l     → Julia green  (#389826) / stroke #143E0D
+  -->
+  <g transform="translate(220,130)"
+     font-family="'Helvetica Neue', Helvetica, 'Liberation Sans', Arial, sans-serif"
+     font-weight="800"
+     stroke-linejoin="round" paint-order="stroke">
+    <!-- "Jimm" in purple, with matching dark-purple outline -->
+    <text x="0" y="0" font-size="76" letter-spacing="-3"
+          fill="#9558B2" stroke="#3D1F55" stroke-width="2">Jimm</text>
+    <!-- Gray "period" — explicit circle, outlined in deep slate -->
+    <circle cx="218" cy="-7" r="8" fill="#7A8294" stroke="#3A4252" stroke-width="2"/>
+    <!-- "j" in red and "l" in green — one text element with per-tspan strokes
+         so they kern naturally as ".jl" but each carries its own outline color. -->
+    <text x="228" y="0" font-size="76" letter-spacing="-3">
+      <tspan fill="#CB3C33" stroke="#5A130F" stroke-width="2">j</tspan><tspan fill="#389826" stroke="#143E0D" stroke-width="2">l</tspan>
+    </text>
+  </g>
+</svg>
