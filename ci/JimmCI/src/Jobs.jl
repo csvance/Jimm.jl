@@ -24,16 +24,20 @@ mutable struct Job
     kind::JobKind
     pr_number::Union{Int,Nothing}
     pr_title::Union{String,Nothing}
+    head_repo::Union{String,Nothing} # `<owner>/<repo>` of the PR head; nothing for master
+    is_fork::Bool                    # head_repo != base repo
     created_at::DateTime              # chronological-sort key (UTC)
     check_runs::Dict{String,Int}
 end
 
 Job(head_sha, base_sha, families, full_sweep, label, kind;
     pr_number=nothing, pr_title=nothing,
+    head_repo=nothing, is_fork=false,
     created_at=now(UTC)) =
     Job(String(head_sha), String(base_sha), collect(String, families),
         full_sweep, String(label), kind,
         pr_number, pr_title === nothing ? nothing : String(pr_title),
+        head_repo === nothing ? nothing : String(head_repo), is_fork,
         created_at, Dict{String,Int}())
 
 check_name(family::AbstractString, variant::AbstractString) =
@@ -71,6 +75,23 @@ function _parse_iso(s)
     end
 end
 
+# Pure helper: classify a GitHub `pulls` element's head as same-repo or
+# fork. Returns `(head_repo, is_fork)`. Extracted so the test suite can
+# exercise it against synthetic dicts without going through the HTTP layer.
+function _classify_pr_head(pr)
+    # GitHub returns `head.repo == null` when the source fork has been
+    # deleted; `get(head, "repo", Dict())` would still return `nothing`
+    # in that case, so unwrap explicitly before reaching for `full_name`.
+    _full_name(side) = let r = get(side, "repo", nothing)
+        r === nothing ? nothing : get(r, "full_name", nothing)
+    end
+    head_repo = _full_name(get(pr, "head", Dict()))
+    base_repo = _full_name(get(pr, "base", Dict()))
+    is_fork   = head_repo !== nothing && base_repo !== nothing &&
+                head_repo != base_repo
+    return (head_repo, is_fork)
+end
+
 function _pr_jobs(cfg, gh)
     out = Job[]
     pulls = list_open_pulls(gh, repo_fullname(cfg))
@@ -84,12 +105,9 @@ function _pr_jobs(cfg, gh)
             continue
         end
 
-        # Drop fork PRs: head.repo.full_name != base.repo.full_name.
-        head_repo = get(get(head, "repo", Dict()), "full_name", nothing)
-        base_repo = get(get(base, "repo", Dict()), "full_name", nothing)
-        if head_repo !== nothing && base_repo !== nothing && head_repo != base_repo
-            continue
-        end
+        # Fork PRs are surfaced too, but flagged via `is_fork` so the TUI can
+        # render them with a warning glyph and require a second confirm.
+        head_repo, is_fork = _classify_pr_head(pr)
 
         local paths
         try
@@ -111,6 +129,8 @@ function _pr_jobs(cfg, gh)
             PR_JOB;
             pr_number = Int(number),
             pr_title  = get(pr, "title", "") |> String,
+            head_repo = head_repo,
+            is_fork   = is_fork,
             created_at = _parse_iso(get(pr, "updated_at", nothing)),
         ))
     end

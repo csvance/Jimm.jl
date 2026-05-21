@@ -176,6 +176,27 @@ function _is_bare_repo(path::AbstractString)
     end
 end
 
+# GitHub publishes every open PR's head at refs/pull/<N>/head on the base
+# repo, including PRs whose head branch lives in a fork. Mapping those into
+# `refs/remotes/origin/pr/*` makes the fork SHA reachable by `git worktree
+# add` without needing per-fork remotes.
+const _PR_REFSPEC = "+refs/pull/*/head:refs/remotes/origin/pr/*"
+
+function _ensure_pr_refspec!(cfg::Config)
+    env = copy(ENV); env["GIT_TERMINAL_PROMPT"] = "0"
+    existing = try
+        read(setenv(`git -C $(cfg.mirror_dir) config --get-all remote.origin.fetch`,
+                    env), String)
+    catch
+        ""
+    end
+    occursin(_PR_REFSPEC, existing) && return
+    _git(cfg, ["-C", cfg.mirror_dir, "config", "--add",
+               "remote.origin.fetch", _PR_REFSPEC];
+         cwd = cfg.mirror_dir,
+         log_path = joinpath(cfg.log_dir, "mirror-refspec.log"))
+end
+
 function _ensure_mirror!(b::Builder)
     cfg = b.cfg
     if isdir(cfg.mirror_dir) && !_is_bare_repo(cfg.mirror_dir)
@@ -191,7 +212,12 @@ function _ensure_mirror!(b::Builder)
             cwd = dirname(cfg.mirror_dir),
             log_path = joinpath(cfg.log_dir, "mirror-init.log"),
         )
+        _ensure_pr_refspec!(cfg)
+        _git(cfg, ["fetch", "--prune", "origin"];
+             cwd = cfg.mirror_dir,
+             log_path = joinpath(cfg.log_dir, "mirror-fetch.log"))
     else
+        _ensure_pr_refspec!(cfg)
         _git(cfg, ["fetch", "--prune", "origin"];
              cwd = cfg.mirror_dir,
              log_path = joinpath(cfg.log_dir, "mirror-fetch.log"))

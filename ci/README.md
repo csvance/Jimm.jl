@@ -82,15 +82,23 @@ plus master commits from the last 30 days that have no completed
 
 ```
  ┌──────────────────────────── jimm-ci ──────────────────────────────┐
- │ 3 pending                                                          │
+ │ 4 pending                                                          │
  │┌── queue ──────────────────────────────────────────────────────────│
- ││ 2026-05-21 09:14  PR      #42 Add InceptionNeXt family    [infra,bit,…]
- ││ 2026-05-21 04:21  master  master @ 3aa12b3                [infra,bit,…]
- ││ 2026-05-20 14:02  master  master @ 097de48                [infra,bit,…]
+ ││   2026-05-21 09:14  PR      #42 [owner/Jimm.jl]   Add InceptionNeXt   [infra,bit,…]
+ ││ ⚠ 2026-05-21 08:50  PR      #43 [contrib/Jimm.jl] Fix typo            [infra]
+ ││   2026-05-21 04:21  master  master @ 3aa12b3                          [infra,bit,…]
+ ││   2026-05-20 14:02  master  master @ 097de48                          [infra,bit,…]
  │└───────────────────────────────────────────────────────────────────│
- │  3 job(s) pending    [↑↓/jk] move  [Enter/y] run  [A] run all master  [s] skip  [r] refresh  [q] quit │
+ │  4 job(s) pending    [↑↓/jk] move  [Enter/y] run  [A] run all master  [s] skip  [r] refresh  [q] quit │
  └────────────────────────────────────────────────────────────────────┘
 ```
+
+The `⚠` glyph and warning-coloured row mark a PR whose head branch lives
+in a fork. Pressing `Enter` or `y` on a fork row opens a confirmation
+modal that names the fork and head SHA; the build only starts after a
+second `y`. Same-repo PRs and master commits skip the modal. The
+`[owner/repo]` column is always shown, including for non-fork PRs, so
+the source of every commit is explicit.
 
 ### Keybindings
 
@@ -105,6 +113,10 @@ plus master commits from the last 30 days that have no completed
 | `c` | — | cancel the current build (modal confirm) |
 | `C` | — | cancel the current build **and** the back-to-back queue |
 | `PgUp` / `PgDn` | — | scroll the log pane |
+
+In the fork-confirm modal (opened automatically when `Enter` / `y` is
+pressed on a fork PR row), `y` runs the build and `n` / `Esc` dismisses
+the modal without running.
 
 When a job is running, the same pane switches to a live, auto-following
 log view. Output is streamed line-by-line as the Julia subprocess writes
@@ -142,9 +154,10 @@ ci/
 
 On every TUI launch (or `--dry-run` invocation), `jimm-ci`:
 
-1. Lists open PRs (drops fork PRs). For each, calls Compare to map
-   changed paths → test families, then queries the Checks API for the
-   head commit and keeps only families with no completed
+1. Lists open PRs, including fork PRs (marked with a `⚠` glyph in the
+   TUI and gated behind a fork-confirm modal). For each, calls Compare
+   to map changed paths → test families, then queries the Checks API
+   for the head commit and keeps only families with no completed
    `jimm-ci / <family>` Check Run yet. PR-scope jobs use
    `REPRESENTATIVE_VARIANT` per family.
 2. Lists master commits in the last 30 days; for each commit missing
@@ -400,6 +413,13 @@ ssh ci@<vm> 'sudo -u ci julia -e "using Pkg; Pkg.Apps.develop(path = \"/opt/jimm
 
 which re-resolves and regenerates the launcher.
 
+On the first `jimm-ci` run after upgrading to a version that includes
+fork PR support, the runner adds a `refs/pull/*/head` refspec to the
+mirror so fork commits are reachable by `git worktree`. The next
+`git fetch --prune origin` then pulls every open PR head into
+`refs/remotes/origin/pr/*`, a one-time bandwidth bump on the order of
+the existing mirror; subsequent fetches are incremental.
+
 ### Forcing a re-test of an already-tested commit
 
 The runner skips any commit whose `jimm-ci / <family>` Check Runs are
@@ -430,9 +450,14 @@ new model family is added under `src/Models/<Family>/` with a matching
 
 * The VM never accepts inbound connections from anyone but you over SSH.
   GitHub talks to it only through outbound HTTPS calls made by the CLI.
-* Pull requests from forks are filtered out client-side in `jimm-ci`
-  and never produce a Check Run. A maintainer must push the branch to
-  the main repository to opt it in.
+* Pull requests from forks are surfaced in the TUI with a `⚠` glyph
+  and the head repo path (e.g. `[contrib/Jimm.jl]`). Approving one is
+  a two-step action: `Enter` / `y` opens a confirmation modal naming
+  the fork and head SHA, and the build only starts after a second `y`.
+  Same-repo PRs and master commits skip the modal. The structural
+  filter that previously dropped fork PRs is gone; the modal is the
+  remaining defense-in-depth layer, so always review the diff at the
+  SHA before pressing the second `y`.
 * Per-PR approval (the `y` keystroke in the TUI) is the only thing
   standing between an attacker-pushed commit and code execution on the
   VM. Always review the diff at the SHA you are about to approve, not

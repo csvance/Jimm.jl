@@ -16,7 +16,7 @@ export TuiModel, run_tui
 
 # ── View modes ───────────────────────────────────────────────────────
 
-@enum ViewMode VIEW_LIST VIEW_RUNNING VIEW_CONFIRM_CANCEL
+@enum ViewMode VIEW_LIST VIEW_RUNNING VIEW_CONFIRM_CANCEL VIEW_CONFIRM_FORK
 
 mutable struct RunningJob
     job::Job
@@ -39,6 +39,7 @@ end
 
     running::Union{Nothing,RunningJob} = nothing
     queue::Vector{Job} = Job[]            # back-to-back master queue
+    pending_fork::Union{Nothing,Job} = nothing  # job awaiting fork-confirm
 
     # Live-output plumbing
     log_pane::ScrollPane = ScrollPane(String[];
@@ -87,15 +88,18 @@ function _short(sha::AbstractString, n::Int = 8)
 end
 
 function _row_text(j::Job)
-    when = Dates.format(j.created_at, dateformat"yyyy-mm-dd HH:MM")
-    kind = j.kind == Jobs.PR_JOB ? "PR    " : "master"
-    fams = join(j.families, ",")
+    when  = Dates.format(j.created_at, dateformat"yyyy-mm-dd HH:MM")
+    kind  = j.kind == Jobs.PR_JOB ? "PR    " : "master"
+    fams  = join(j.families, ",")
+    glyph = j.is_fork ? "⚠ " : "  "
     title = if j.kind == Jobs.PR_JOB
-        "#$(j.pr_number) $(j.pr_title === nothing ? "" : j.pr_title)"
+        repo  = j.head_repo === nothing ? "?" : j.head_repo
+        body  = j.pr_title === nothing ? "" : j.pr_title
+        "#$(j.pr_number) [$repo] $body"
     else
         "master @ $(_short(j.head_sha))"
     end
-    return "$when  $kind  $(rpad(title, 50))  [$fams]"
+    return "$glyph$when  $kind  $(rpad(title, 60))  [$fams]"
 end
 
 function _push_log!(m::TuiModel, line::AbstractString)
@@ -198,6 +202,8 @@ end
 function update!(m::TuiModel, evt::KeyEvent)
     if m.mode == VIEW_CONFIRM_CANCEL
         return _on_key_confirm_cancel!(m, evt)
+    elseif m.mode == VIEW_CONFIRM_FORK
+        return _on_key_confirm_fork!(m, evt)
     elseif m.mode == VIEW_RUNNING
         return _on_key_running!(m, evt)
     else
@@ -256,6 +262,19 @@ function _on_key_confirm_cancel!(m::TuiModel, evt::KeyEvent)
     end
 end
 
+function _on_key_confirm_fork!(m::TuiModel, evt::KeyEvent)
+    if evt.key == :char
+        c = evt.char
+        if c == 'y' || c == 'Y'
+            _confirm_fork_run!(m)
+        elseif c == 'n' || c == 'N'
+            _cancel_fork_modal!(m)
+        end
+    elseif evt.key == :escape
+        _cancel_fork_modal!(m)
+    end
+end
+
 function _move_selection!(m::TuiModel, delta::Int)
     isempty(m.jobs) && return
     m.selected = clamp(m.selected + delta, 1, length(m.jobs))
@@ -264,10 +283,40 @@ end
 function _run_selected!(m::TuiModel)
     isempty(m.jobs) && return
     job = m.jobs[m.selected]
+    if job.is_fork
+        # Two-step confirm: fork PRs run contributor code on the CI VM, so
+        # the maintainer has to press y twice to approve.
+        m.pending_fork = job
+        m.mode         = VIEW_CONFIRM_FORK
+        return
+    end
     # Remove from list — it's now in flight.
     deleteat!(m.jobs, m.selected)
     m.selected = clamp(m.selected, 1, max(length(m.jobs), 1))
     _spawn_run!(m, job)
+end
+
+function _confirm_fork_run!(m::TuiModel)
+    job = m.pending_fork
+    m.pending_fork = nothing
+    if job === nothing
+        m.mode = VIEW_LIST
+        return
+    end
+    # A background refresh may have replaced m.jobs while the modal was up;
+    # `===` matches the stashed object regardless of position.
+    idx = findfirst(j -> j === job, m.jobs)
+    if idx !== nothing
+        deleteat!(m.jobs, idx)
+        m.selected = clamp(m.selected, 1, max(length(m.jobs), 1))
+    end
+    _spawn_run!(m, job)
+end
+
+function _cancel_fork_modal!(m::TuiModel)
+    m.pending_fork = nothing
+    m.mode         = VIEW_LIST
+    m.status       = "fork run cancelled"
 end
 
 function _run_all_master!(m::TuiModel)
@@ -392,6 +441,9 @@ function view(m::TuiModel, f::Frame)
     elseif m.mode == VIEW_CONFIRM_CANCEL
         _render_running!(m, buf, body_area)
         _render_cancel_modal!(m, buf, body_area)
+    elseif m.mode == VIEW_CONFIRM_FORK
+        _render_list!(m, buf, body_area)
+        _render_fork_modal!(m, buf, body_area)
     end
 
     _render_status!(m, buf, status_area)
@@ -419,7 +471,9 @@ function _render_list!(m::TuiModel, buf, area)
         return
     end
     items = [ListItem(_row_text(j),
-        j.kind == Jobs.PR_JOB ? tstyle(:primary) : tstyle(:secondary))
+        j.is_fork                ? tstyle(:warning)   :
+        j.kind == Jobs.PR_JOB    ? tstyle(:primary)   :
+                                   tstyle(:secondary))
         for j in m.jobs]
     render(SelectableList(items;
         selected         = m.selected,
@@ -478,11 +532,43 @@ function _render_cancel_modal!(m::TuiModel, buf, area)
                 tstyle(:text_dim); max_x = right(inner))
 end
 
+function _render_fork_modal!(m::TuiModel, buf, area)
+    job = m.pending_fork
+    job === nothing && return
+    w = min(80, area.width - 4)
+    h = 9
+    (w < 20 || h > area.height) && return
+    rect = center(area, w, h)
+    for cy in rect.y:bottom(rect), cx in rect.x:right(rect)
+        in_bounds(buf, cx, cy) && set_char!(buf, cx, cy, ' ', tstyle(:text))
+    end
+    inner = render(Block(title = " ⚠ fork PR — confirm ",
+                         border_style = tstyle(:warning, bold = true),
+                         title_style  = tstyle(:warning, bold = true)),
+                   rect, buf)
+    repo  = job.head_repo === nothing ? "?" : job.head_repo
+    title = job.pr_title  === nothing ? "" : job.pr_title
+    set_string!(buf, inner.x + 2, inner.y + 1,
+                "PR #$(job.pr_number) from $(repo)",
+                tstyle(:text); max_x = right(inner))
+    set_string!(buf, inner.x + 2, inner.y + 2,
+                "head $(_short(job.head_sha, 12))  $(title)",
+                tstyle(:text_dim); max_x = right(inner))
+    set_string!(buf, inner.x + 2, inner.y + 4,
+                "Running this executes contributor code on the CI VM.",
+                tstyle(:text); max_x = right(inner))
+    set_string!(buf, inner.x + 2, inner.y + 6,
+                "[y] run   [n/Esc] cancel",
+                tstyle(:text_dim); max_x = right(inner))
+end
+
 function _render_status!(m::TuiModel, buf, area)
     hint = if m.mode == VIEW_LIST
         "[↑↓/jk] move  [Enter/y] run  [A] run all master  [s] skip  [r] refresh  [q] quit"
     elseif m.mode == VIEW_RUNNING
         "[c] cancel  [C] cancel all  [q] quit (signals cancel)  [PgUp/PgDn] scroll"
+    elseif m.mode == VIEW_CONFIRM_FORK
+        "[y] run fork PR   [n/Esc] cancel"
     else
         "[y] yes  [a] cancel queue too  [n/Esc] keep running"
     end
