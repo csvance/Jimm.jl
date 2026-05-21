@@ -188,33 +188,18 @@ function _ensure_mirror!(b::Builder)
     end
 end
 
-function _link_parity_dir!(cfg::Config, wt::AbstractString)
-    mkpath(cfg.parity_dir)
-    data = joinpath(wt, "data")
-    mkpath(data)
-    link = joinpath(data, "parity")
-    if islink(link) || ispath(link)
-        if isdir(link) && !islink(link)
-            rm(link; recursive = true)
-        else
-            rm(link)
-        end
-    end
-    symlink(cfg.parity_dir, link)
-end
-
 function _make_worktree!(b::Builder, sha::AbstractString)
     cfg = b.cfg
     wt = joinpath(cfg.workspace_dir, sha)
     isdir(wt) && rm(wt; recursive = true, force = true)
     mkpath(dirname(wt))
+    mkpath(cfg.parity_dir)
     _git(cfg, ["-C", cfg.mirror_dir, "worktree", "prune"];
          cwd = cfg.mirror_dir,
          log_path = joinpath(cfg.log_dir, sha, "worktree-prune.log"))
     _git(cfg, ["-C", cfg.mirror_dir, "worktree", "add", "--detach", wt, sha];
          cwd = cfg.mirror_dir,
          log_path = joinpath(cfg.log_dir, sha, "worktree.log"))
-    _link_parity_dir!(cfg, wt)
     return wt
 end
 
@@ -240,6 +225,7 @@ function _env_for_family(cfg::Config, family::AbstractString, variant::AbstractS
     env["JULIA_LOAD_PATH"]    = "@:@v#.#:@stdlib"
     env["JIMM_TEST_FAMILIES"] = String(family)
     env["JIMM_TEST_VARIANTS"] = String(variant)
+    env["JIMM_PARITY_DIR"]    = cfg.parity_dir
     if cfg.hf_token !== nothing
         env["HF_TOKEN"]                = cfg.hf_token
         env["HUGGING_FACE_HUB_TOKEN"]  = cfg.hf_token
@@ -251,6 +237,7 @@ function _env_for_sidecar(cfg::Config)
     env = copy(ENV)
     env["UV_PROJECT_ENVIRONMENT"] = cfg.python_env
     env["HF_HUB_CACHE"]           = cfg.hf_cache
+    env["JIMM_PARITY_DIR"]        = cfg.parity_dir
     if cfg.hf_token !== nothing
         env["HF_TOKEN"]               = cfg.hf_token
         env["HUGGING_FACE_HUB_TOKEN"] = cfg.hf_token

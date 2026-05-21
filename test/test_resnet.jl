@@ -18,7 +18,8 @@ const RESNET_VARIANTS_TO_TEST = (
 
 function resnet_fixture_path(variant::Symbol; in_chans::Int = 3)
     suffix = in_chans == 3 ? "" : "_in$(in_chans)c"
-    joinpath(@__DIR__, "..", "data", "parity", "$(variant)$(suffix)_io.h5")
+    base = get(ENV, "JIMM_PARITY_DIR", joinpath(@__DIR__, "..", "data", "parity"))
+    joinpath(base, "$(variant)$(suffix)_io.h5")
 end
 
 function load_resnet_fixture(variant::Symbol; in_chans::Int = 3)

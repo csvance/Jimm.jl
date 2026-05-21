@@ -30,7 +30,8 @@ const VARIANTS_TO_TEST = Tuple(sort(collect(keys(Jimm.CONVNEXT_VARIANTS))))
 
 function convnext_fixture_path(variant::Symbol; in_chans::Int = 3)
     suffix = in_chans == 3 ? "" : "_in$(in_chans)c"
-    joinpath(@__DIR__, "..", "data", "parity", "$(variant)$(suffix)_io.h5")
+    base = get(ENV, "JIMM_PARITY_DIR", joinpath(@__DIR__, "..", "data", "parity"))
+    joinpath(base, "$(variant)$(suffix)_io.h5")
 end
 
 # The HDF5 fixture stores PyTorch-layout tensors; read_parity reverses axes
