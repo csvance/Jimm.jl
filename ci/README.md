@@ -1,19 +1,27 @@
 # Jimm.jl self-hosted CI
 
-`jimm-ci` is two small CLI tools that run the Jimm.jl parity test suite
-on a self-hosted Linux VM and report results back to GitHub via the
-Checks API. There is **no webhook listener, no public endpoint, and no
-domain name involved** — every run is started by the maintainer, by
+`jimm-ci` is an interactive Julia TUI that runs the Jimm.jl parity test
+suite on a self-hosted Linux VM and reports results back to GitHub via
+the Checks API. There is **no webhook listener, no public endpoint, and
+no domain name involved**, every run is started by the maintainer, by
 hand, over SSH.
 
-* `jimm-ci-run` — finds every commit eligible to be tested (open PRs
-  plus master commits in the last 30 days with no completed `jimm-ci`
-  check), interactively prompts y/n on each pull request, and runs the
-  suite against every confirmed job. Master commits run automatically.
-* `jimm-ci-skip` — posts `conclusion=skipped` Check Runs on one or more
-  commits so the runner stops considering them. Use it to clear a
-  backlog of pending master commits (`--all-pending`) or to permanently
-  exclude a single SHA.
+The same binary covers four jobs:
+
+* **Default (`jimm-ci`)** launches a TUI showing every PR and recent
+  master commit eligible for CI. The maintainer picks one, watches the
+  combined stdout/stderr stream live in the same pane, and may cancel
+  the build or schedule a back-to-back run of every pending master
+  commit.
+* **`jimm-ci --dry-run`** prints the discovered jobs and exits.
+* **`jimm-ci --master`** and **`jimm-ci --sha <sha>`** force a full
+  sweep against a specific commit, bypassing discovery and the
+  already-tested filter. Used to re-test a commit after fixing a bug in
+  the runner.
+* **`jimm-ci --skip-pending`** posts `conclusion=skipped` Check Runs on
+  every currently pending master commit, clearing a backlog. PRs are
+  never auto-skipped, decline a PR by pressing `s` on its row in the
+  TUI instead.
 
 ```
                  ┌──────────────────────────────────────┐
@@ -23,53 +31,80 @@ hand, over SSH.
                  └────────────┬─────────────────────────┘
                               │ HTTPS (outbound only)
                   ┌───────────▼─────────────┐
-                  │ jimm-ci-run             │
-                  │  (launched over SSH)    │
+                  │ jimm-ci (Julia TUI)     │
+                  │  launched over SSH      │
                   │  git mirror + worktree  │
                   │  julia Pkg.test         │
                   └─────────────────────────┘
 ```
 
-## Approval model
+## TUI
 
-When `jimm-ci-run` discovers an open PR with families that have no
-completed `jimm-ci` Check Run yet, it prompts at the terminal:
+On launch, `jimm-ci` performs an eager discovery (open PRs in the repo
+plus master commits from the last 30 days that have no completed
+`jimm-ci` Check Run) and presents the result sorted newest first:
 
 ```
-PR #42: Add InceptionNeXt family
-    head:     a1b2c3d4e5f6
-    families: infra,bit,resnet,convnext,convnextv2
-    run? [y/N]:
+ ┌──────────────────────────── jimm-ci ──────────────────────────────┐
+ │ 3 pending                                                          │
+ │┌── queue ──────────────────────────────────────────────────────────│
+ ││ 2026-05-21 09:14  PR      #42 Add InceptionNeXt family    [infra,bit,…]
+ ││ 2026-05-21 04:21  master  master @ 3aa12b3                [infra,bit,…]
+ ││ 2026-05-20 14:02  master  master @ 097de48                [infra,bit,…]
+ │└───────────────────────────────────────────────────────────────────│
+ │  3 job(s) pending    [↑↓/jk] move  [Enter/y] run  [A] run all master  [s] skip  [r] refresh  [q] quit │
+ └────────────────────────────────────────────────────────────────────┘
 ```
 
-* `y` queues the PR for testing.
-* `n` (or empty / Ctrl-D) **cancels** the PR by posting `skipped` Check
-  Runs on its current head SHA, so the runner does not re-prompt until
-  the author pushes a new commit (which gives a new head SHA, and
-  therefore no `skipped` check on it).
+### Keybindings
 
-The prompt is the only place a PR can opt in. Always review the diff at
-the current head SHA before answering `y` — there is no second gate.
+| Key | List view | Running view |
+| --- | --- | --- |
+| `↑` / `↓`, `j` / `k` | move cursor | scroll log pane |
+| `Enter` / `y` | run the selected job | — |
+| `A` | enqueue the selected master commit **and every older pending master commit**, then drain serially | — |
+| `s` | post `skipped` Check Runs for the selected commit and drop it | — |
+| `r` | refresh the list (background fetch; UI stays responsive) | — |
+| `q` / `Esc` | quit | — |
+| `c` | — | cancel the current build (modal confirm) |
+| `C` | — | cancel the current build **and** the back-to-back queue |
+| `PgUp` / `PgDn` | — | scroll the log pane |
 
-Master commits are not gated — merged code is presumed reviewed at merge
-time — and run automatically after the PR prompts finish.
+When a job is running, the same pane switches to a live, auto-following
+log view. Output is streamed line-by-line as the Julia subprocess writes
+to stdout/stderr; the full log is also persisted to
+`<state>/logs/<sha>/<family>.log`.
+
+PR approval and `n`-equivalent decline both happen by selecting the PR
+row and pressing `y` or `s` respectively. Master commits are not gated,
+merged code is presumed reviewed at merge time, but the TUI still
+requires a per-commit confirmation (one keystroke each, or use `A` to
+drain them back-to-back).
 
 ## Layout
 
 ```
 ci/
-├── pyproject.toml          # uv-managed Python project, entry points
-└── jimm_ci/
-    ├── runner.py           # jimm-ci-run: discover + prompt + build loop
-    ├── skip.py             # jimm-ci-skip: post `skipped` Check Runs
-    ├── github_app.py       # JWT + installation token + Checks/Compare/Pulls
-    ├── path_filter.py      # changed paths → test families
-    └── config.py           # env-var-driven configuration
+└── JimmCI/                  # Julia package, drives the runner end-to-end
+    ├── Project.toml         # Tachikoma / HTTP / JSON3 / JSONWebTokens pins
+    ├── bin/jimm-ci          # thin shell wrapper used over SSH
+    ├── src/
+    │   ├── JimmCI.jl        # module root + CLI entry point
+    │   ├── Config.jl        # env-var-driven configuration
+    │   ├── GitHubApp.jl     # JWT + installation token + Checks/Compare/Pulls
+    │   ├── Jobs.jl          # Job struct + discovery (open PRs, recent master)
+    │   ├── PathFilter.jl    # changed paths → test families
+    │   ├── Builder.jl       # git worktree + Pkg.test + Check Run lifecycle
+    │   ├── SkipMarker.jl    # post `skipped` Check Runs
+    │   └── Tui.jl           # Tachikoma.jl model/update/view
+    └── test/
+        ├── runtests.jl
+        └── test_path_filter.jl
 ```
 
 ## What the runner does
 
-On every invocation, `jimm-ci-run`:
+On every TUI launch (or `--dry-run` invocation), `jimm-ci`:
 
 1. Lists open PRs (drops fork PRs). For each, calls Compare to map
    changed paths → test families, then queries the Checks API for the
@@ -78,25 +113,27 @@ On every invocation, `jimm-ci-run`:
    `REPRESENTATIVE_VARIANT` per family.
 2. Lists master commits in the last 30 days; for each commit missing
    any `jimm-ci` Check Run, queues a full-sweep job.
-3. **Prompts y/n on every PR job.** `n` posts `skipped` Check Runs on
-   that SHA's missing families and drops the job. `y` keeps it.
-4. Processes the surviving job list serially, PR jobs first. For each
-   family in a job:
-   posts an `in_progress` Check Run, dumps the family's timm parity
-   fixture(s) into a persistent `<state>/parity/` directory (symlinked
-   into the worktree's `data/parity/`) via `uv run python
-   test/parity/dump_<family>_io.py …` if the fixture is missing, runs
-   `julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'`
-   inside a detached `git worktree` with
-   `JIMM_TEST_FAMILIES` / `JIMM_TEST_VARIANTS` set, then completes the
-   Check Run with the tail of the build log (capped at ~60 KB).
+3. Presents the union in the TUI, sorted newest-first.
 
-The parity fixtures themselves and the Python venv that produces them
-both live under `<state>/` (`parity/` and `python-env/`), so the
-first run for a given variant pays the dump cost (a few minutes) and
-every subsequent run is a cache hit.
+When the user picks a job, the builder:
 
-`--dry-run` prints the discovered jobs and exits without invoking Julia.
+* posts an `in_progress` Check Run for each family;
+* dumps the family's timm parity fixture(s) into a persistent
+  `<state>/parity/` directory (symlinked into the worktree's
+  `data/parity/`) via `uv run python test/parity/dump_<family>_io.py …`
+  if the fixture is missing;
+* runs `julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'`
+  inside a detached `git worktree` with `JIMM_TEST_FAMILIES` /
+  `JIMM_TEST_VARIANTS` set;
+* streams stdout/stderr to the TUI **and** to a per-family log file
+  under `<state>/logs/<sha>/<family>.log`;
+* completes the Check Run with the tail of the build log (capped at
+  ~60 KB to stay under the GitHub limit).
+
+The parity fixtures and the Python venv that produces them live under
+`<state>/` (`parity/` and `python-env/`), so the first run for a given
+variant pays the dump cost (a few minutes) and every subsequent run is
+a cache hit.
 
 ## Configuration
 
@@ -116,6 +153,7 @@ not env strings.
 | `JIMM_CI_PARITY_DIR` | no | `<state>/parity` | Where dumped HDF5 fixtures persist across worktrees |
 | `UV_PROJECT_ENVIRONMENT` | no | `<state>/python-env` | Persistent venv for the Python parity sidecars (PyTorch + timm) |
 | `JULIA_NUM_THREADS` | no | `4` | Forwarded to test jobs |
+| `JIMM_CI_LOG_LEVEL` | no | `INFO` | Set to `DEBUG` for verbose runner logs |
 
 ## Setup on Debian 13
 
@@ -133,7 +171,7 @@ apt-get install -y --no-install-recommends \
 adduser --system --group --home /home/ci --shell /bin/bash ci
 ```
 
-### 2. Install `uv` (Python project runner)
+### 2. Install `uv` (still needed for the Python parity sidecars)
 
 ```bash
 sudo -u ci bash -lc 'curl -LsSf https://astral.sh/uv/install.sh | sh'
@@ -147,11 +185,14 @@ sudo -u ci bash -lc 'curl -fsSL https://install.julialang.org | sh -s -- --yes'
 ln -sf /home/ci/.juliaup/bin/julia /usr/local/bin/julia
 ```
 
-### 4. Clone the repository and create state directories
+### 4. Clone the repository, instantiate the runner, create state dirs
 
 ```bash
 install -d -o ci -g ci /opt/jimm-ci
 sudo -u ci git clone https://github.com/<OWNER>/Jimm.jl.git /opt/jimm-ci/Jimm.jl
+
+sudo -u ci julia --project=/opt/jimm-ci/Jimm.jl/ci/JimmCI \
+    -e 'using Pkg; Pkg.instantiate()'
 
 install -d -o ci -g ci \
     /var/lib/jimm-ci \
@@ -159,13 +200,15 @@ install -d -o ci -g ci \
     /var/lib/jimm-ci/hf-cache \
     /var/lib/jimm-ci/parity \
     /var/lib/jimm-ci/python-env
+
+ln -sf /opt/jimm-ci/Jimm.jl/ci/JimmCI/bin/jimm-ci /usr/local/bin/jimm-ci
 ```
 
 The runner creates `mirror.git`, `work/`, and `logs/` under
 `/var/lib/jimm-ci/` on first invocation. The parity sidecars need a
-Python environment with PyTorch + timm — `uv` provisions it lazily into
+Python environment with PyTorch + timm; `uv` provisions it lazily into
 `/var/lib/jimm-ci/python-env/` on the first dump (expect ~2 GB and a
-few minutes the first time), and reuses it on every subsequent run.
+few minutes the first time) and reuses it on every subsequent run.
 
 ### 5. Register the GitHub App
 
@@ -234,50 +277,47 @@ Everything below runs as the `ci` user.
 ### Dry-run discovery
 
 ```bash
-ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-run --dry-run'
+ssh -t ci@<vm> jimm-ci --dry-run
 ```
 
-Prints the jobs that would execute and exits. Useful to confirm an
-approval label has taken effect before paying for the actual run.
+Prints the jobs that would be presented in the TUI and exits.
 
-### Execute pending jobs
+### Interactive run
 
 ```bash
-ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-run'
+ssh -t ci@<vm> jimm-ci
 ```
 
-Drains every discovered job serially. Re-running immediately is a no-op:
-the Check Runs created on the first invocation make the runner consider
-each commit as already tested.
+Launches the TUI. The `-t` is important, it allocates a PTY so
+Tachikoma can render. Use the keybindings above to pick jobs, run, and
+cancel.
 
 ### Run a specific commit on demand
 
 ```bash
 # Re-test the current master HEAD even if it already has check runs:
-ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-run --master'
+ssh ci@<vm> jimm-ci --master
 
 # Or pin to a specific commit (any length >= 7):
-ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-run --sha 12fd3b8d'
+ssh ci@<vm> jimm-ci --sha 12fd3b8d
 ```
 
 Both flags **bypass discovery and the already-tested filter** entirely
 and run a full sweep on the chosen commit. Use them to retrigger a run
 after fixing a bug in the runner, or to re-verify a specific master
-commit. The PR prompt is also skipped (there is nothing to prompt
-about — you asked for this commit by hand).
+commit. The TUI is not launched, output is streamed to the terminal
+directly.
 
-### Skip pending commits without testing them
+### Skip pending master commits without testing them
 
 ```bash
-ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-skip --all-pending'
+ssh ci@<vm> jimm-ci --skip-pending
 ```
 
 Posts a `skipped` Check Run for every family on every currently-pending
 **master** commit so the runner stops reconsidering them. PRs are never
-auto-skipped here — cancel a PR by answering `n` at the `jimm-ci-run`
-prompt instead. To skip a specific commit (PR head or otherwise)
-anyway, pass the SHA explicitly: `jimm-ci-skip <sha> [<sha> ...]`.
-`--dry-run` previews which commits would be marked.
+auto-skipped here, decline a PR by selecting its row in the TUI and
+pressing `s` instead.
 
 ## Operations
 
@@ -292,11 +332,14 @@ you need the full log.
 ### Redeploy
 
 ```bash
-ssh ci@<vm> 'sudo -u ci git -C /opt/jimm-ci/Jimm.jl pull --ff-only'
+ssh ci@<vm> 'sudo -u ci git -C /opt/jimm-ci/Jimm.jl pull --ff-only && \
+             sudo -u ci julia --project=/opt/jimm-ci/Jimm.jl/ci/JimmCI \
+                -e "using Pkg; Pkg.instantiate()"'
 ```
 
-No service to restart; the next `jimm-ci-run` invocation will pick up
-the new code automatically.
+No service to restart; the next `jimm-ci` invocation will pick up the
+new code automatically. The `Pkg.instantiate()` step is only required
+when `ci/JimmCI/Manifest.toml` changes.
 
 ### Forcing a re-test of an already-tested commit
 
@@ -306,18 +349,19 @@ all already `completed`. To force a re-test:
 1. In the GitHub UI, delete the existing Check Runs for that commit
    (Checks tab → ⋯ → **Re-run** triggers a fresh run via the API too,
    but the simplest path is just to re-create the App's check runs).
-2. Or, push a no-op follow-up commit and label it.
+2. Or use `jimm-ci --sha <sha>` to bypass the filter for a single
+   commit.
 
 ### Rotate the App private key
 
 1. Generate a new key in the GitHub App settings; download the `.pem`.
 2. Replace `/etc/jimm-ci/app.pem` (keep `0640 root:ci`).
-3. Revoke the old key in the GitHub UI once a `jimm-ci-run --dry-run`
-   is confirmed to still authenticate.
+3. Revoke the old key in the GitHub UI once a `jimm-ci --dry-run` is
+   confirmed to still authenticate.
 
 ### Adding a new test family
 
-The CI's family routing lives in `ci/jimm_ci/path_filter.py`. When a
+The CI's family routing lives in `ci/JimmCI/src/PathFilter.jl`. When a
 new model family is added under `src/Models/<Family>/` with a matching
 `test/test_<family>.jl`, update `_FAMILY_PREFIXES`, `_FAMILY_EXACT`,
 `ALL_FAMILIES`, and `REPRESENTATIVE_VARIANT` in that file. The root
@@ -327,11 +371,12 @@ new model family is added under `src/Models/<Family>/` with a matching
 
 * The VM never accepts inbound connections from anyone but you over SSH.
   GitHub talks to it only through outbound HTTPS calls made by the CLI.
-* Pull requests from forks are filtered out client-side in
-  `jimm-ci-run` and never produce a Check Run. A maintainer must push
-  the branch to the main repository to opt it in.
-* The per-SHA approval label is the only thing standing between an
-  attacker-pushed commit and code execution on the VM. Always review
-  the diff at the SHA you are about to label, not just "the PR."
+* Pull requests from forks are filtered out client-side in `jimm-ci`
+  and never produce a Check Run. A maintainer must push the branch to
+  the main repository to opt it in.
+* Per-PR approval (the `y` keystroke in the TUI) is the only thing
+  standing between an attacker-pushed commit and code execution on the
+  VM. Always review the diff at the SHA you are about to approve, not
+  just "the PR."
 * Secrets live under `/etc/jimm-ci/` with `0640 root:ci`. The `ci`
   account is a system user.
