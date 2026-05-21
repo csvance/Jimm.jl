@@ -10,8 +10,6 @@ Julia ports of [`timm`](https://github.com/huggingface/pytorch-image-models)
 directly from HuggingFace Hub in `.safetensors` format. The name is an
 homage to the project we port from.
 
-## What Jimm is
-
 Jimm is a strict Lux.jl port of `timm`: same architectures, same
 hyperparameters, same weight initialization, same `state_dict` key
 layout. The goal is that any HuggingFace `timm/<variant>` checkpoint
@@ -19,17 +17,6 @@ loads into the corresponding Jimm model without manual rewiring, and
 that the forward pass matches `timm` to within float32 round-off.
 **Compatibility with `timm` is the project's #1 priority**; if the two
 diverge, `timm` is the reference.
-
-## What Jimm is not
-
-Jimm is not a redesign or a Julia-native reimagining of image
-backbones. It does not introduce new naming or "improved" defaults,
-and the layers it ships (`Jimm.Layers`) are only those `timm` itself
-provides, ported to match. It is not a general computer-vision
-toolkit: no datasets, no training loops, no augmentation pipelines, no
-detection or segmentation heads beyond what `timm` itself exposes on a
-backbone. Anything that would cause a Jimm model to diverge
-numerically from its `timm` counterpart is out of scope.
 
 ## Status
 
