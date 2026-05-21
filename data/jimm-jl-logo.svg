@@ -21,38 +21,38 @@
     </symbol>
   </defs>
 
-  <!-- ====== CUBE MARK (triangular) ======
-       Cluster centered around (115, 110). Cube spans:
-         x: [ox, ox+80], y: [oy-46, oy+46].
-       Top cube (purple) centered horizontally: ox = 115 - 40 = 75, apex oy = 86
-       Bottom-left (green): ox = 75 - 54 = 21, oy = 134
-       Bottom-right (red):  ox = 75 + 54 = 129, oy = 134 -->
+  <!-- ====== CUBE MARK (pyramid stack) ======
+       Two cubes form the base sitting edge-to-edge in iso projection
+       (centers 2*dx = 80 apart). The third cube sits on top, centered
+       in the valley between them. Draw order: base first, then top,
+       so the top cube correctly occludes the back portions of the base.
+
+       Cube edge = 46 (dx=40, dy=23). Cube spans x:[ox, ox+80], y:[oy-46, oy+46].
+       Base cubes share their adjacent vertical edges at x=115.
+       Top cube sits 3*dy = 69 above the base row vertically. -->
   <g>
-    <use href="#cube-purple-lg" x="75"  y="86"/>
-    <use href="#cube-green-lg"  x="21"  y="134"/>
-    <use href="#cube-red-lg"    x="129" y="134"/>
+    <use href="#cube-purple-lg" x="35"  y="144"/>
+    <use href="#cube-green-lg"  x="115" y="144"/>
+    <use href="#cube-red-lg"    x="75"  y="75"/>
   </g>
 
   <!-- ====== WORDMARK ======
+       One text element so all glyphs flow with the font's natural metrics. The
+       separator is the convolution operator ∗ (U+2217 ASTERISK OPERATOR), which is
+       the defining operation of convnets — a tighter fit for Jimm.jl than a plain dot.
+
        Color plan (each glyph outlined to match the cubes' stroke language):
          Jimm  → Julia purple (#9558B2) / stroke #3D1F55
-         .     → neutral gray (drawn as circle) / stroke #3A4252
+         ∗     → neutral gray (#7A8294) / stroke #3A4252
          j     → Julia red    (#CB3C33) / stroke #5A130F
          l     → Julia green  (#389826) / stroke #143E0D
   -->
-  <g transform="translate(220,130)"
+  <g transform="translate(220,128)"
      font-family="'Helvetica Neue', Helvetica, 'Liberation Sans', Arial, sans-serif"
      font-weight="800"
      stroke-linejoin="round" paint-order="stroke">
-    <!-- "Jimm" in purple, with matching dark-purple outline -->
-    <text x="0" y="0" font-size="76" letter-spacing="-3"
-          fill="#9558B2" stroke="#3D1F55" stroke-width="2">Jimm</text>
-    <!-- Gray "period" — explicit circle, outlined in deep slate -->
-    <circle cx="218" cy="-7" r="8" fill="#7A8294" stroke="#3A4252" stroke-width="2"/>
-    <!-- "j" in red and "l" in green — one text element with per-tspan strokes
-         so they kern naturally as ".jl" but each carries its own outline color. -->
-    <text x="228" y="0" font-size="76" letter-spacing="-3">
-      <tspan fill="#CB3C33" stroke="#5A130F" stroke-width="2">j</tspan><tspan fill="#389826" stroke="#143E0D" stroke-width="2">l</tspan>
+    <text x="0" y="0" font-size="76" letter-spacing="-3" stroke-width="2">
+      <tspan fill="#9558B2" stroke="#3D1F55">Jimm</tspan><tspan fill="#7A8294" stroke="#3A4252">&#8727;</tspan><tspan fill="#CB3C33" stroke="#5A130F">j</tspan><tspan fill="#389826" stroke="#143E0D">l</tspan>
     </text>
   </g>
 </svg>

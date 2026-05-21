@@ -4,6 +4,7 @@
 <div align="center">
 
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://csvance.github.io/Jimm.jl/dev/)
+[![CI](https://img.shields.io/github/checks-status/csvance/Jimm.jl/master?label=CI)](https://github.com/csvance/Jimm.jl/commits/master)
 
 </div>
 
