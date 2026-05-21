@@ -10,14 +10,6 @@ Julia ports of [`timm`](https://github.com/huggingface/pytorch-image-models)
 directly from HuggingFace Hub in `.safetensors` format. The name is an
 homage to the project we port from.
 
-Jimm is a strict Lux.jl port of `timm`: same architectures, same
-hyperparameters, same weight initialization, same `state_dict` key
-layout. The goal is that any HuggingFace `timm/<variant>` checkpoint
-loads into the corresponding Jimm model without manual rewiring, and
-that the forward pass matches `timm` to within float32 round-off.
-**Compatibility with `timm` is the project's #1 priority**; if the two
-diverge, `timm` is the reference.
-
 ## Status
 
 Most of Jimm was written by AI agents driving the porting workflow
@@ -31,27 +23,13 @@ input shapes). File issues and PRs.
 
 ## Available backbones
 
-| Family            | Constructor    | Weights | Weight license   |
-|-------------------|----------------|---------|------------------|
-| BiT ResNetV2      | `bit_resnetv2` | 15      | Apache 2.0       |
-| ResNet            | `resnet`       | 5       | Apache 2.0       |
-| ConvNeXt          | `convnext`     | 19      | Apache 2.0       |
-| ConvNeXt (DINOv3) | `convnext`     | 4       | DINOv3 License   |
-| ConvNeXt V2       | `convnextv2`   | 26      | CC BY-NC 4.0     |
-
-Weight licenses are set by the upstream releases (Google for BiT,
-Facebook AI for the original ConvNeXt `.fb_*` checkpoints, Meta for
-the ConvNeXt DINOv3 encoders and ConvNeXtV2) and are separate from
-Jimm.jl's own Apache 2.0 code license. **ConvNeXtV2 weights are CC
-BY-NC 4.0, which forbids commercial use**; the **ConvNeXt DINOv3
-weights carry Meta's DINOv3 License**, which imposes obligations on
-derived outputs (read the [license text](https://ai.meta.com/resources/models-and-libraries/dinov3-license/)
-before deploying). Pick BiT or ConvNeXt (`.fb_*`) when commercial
-deployment matters.
-
-Variant keys are the `timm` model name with the dot rewritten as an
-underscore (so the key remains a single Julia identifier). The full
-`timm` name with the dot lives at `<FAMILY>_VARIANTS[key].hf_repo`.
+| Family                      | Constructor    | Weights | Weight License                     | Commercial Use |
+|-----------------------------|----------------|---------|------------------------------------|----------------|
+| [ResNet][resnet]            | `resnet`       | 5       | [Apache 2.0][license-apache2]      | ✅              |
+| [BiT ResNetV2][bit]         | `bit_resnetv2` | 15      | [Apache 2.0][license-apache2]      | ✅              |
+| [ConvNeXt][convnextv1]      | `convnext`     | 19      | [Apache 2.0][license-apache2]      | ✅              |
+| [ConvNeXt (DINOv3)][dinov3] | `convnext`     | 4       | [DINOv3 License][license-dinov3]   | ⚠️             |
+| [ConvNeXt V2][convnextv2]   | `convnextv2`   | 26      | [CC BY-NC 4.0][license-convnextv2] | ❌              |
 
 ## At a glance
 
@@ -81,3 +59,36 @@ inputs.
 - [Testing](testing.md): how the parity test suite is structured, the
   env-var filters, and how to dump a fixture for a new variant.
 - [API Reference](api/index.md): every exported function and type.
+
+
+[timm]: https://github.com/huggingface/pytorch-image-models
+
+[lux]: https://lux.csail.mit.edu/
+
+[docs]: https://csvance.github.io/Jimm.jl/
+
+[docs-getting-started]: https://csvance.github.io/Jimm.jl/getting_started/
+
+[docs-porting]: https://csvance.github.io/Jimm.jl/porting/
+
+[docs-testing]: https://csvance.github.io/Jimm.jl/testing/
+
+[docs-api]: https://csvance.github.io/Jimm.jl/api/
+
+[medicalmetrics]: https://medicalmetrics.com/
+
+[license-apache2]: https://www.apache.org/licenses/LICENSE-2.0
+
+[license-dinov3]: https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md
+
+[license-convnextv2]: https://github.com/facebookresearch/ConvNeXt-V2/blob/main/LICENSE
+
+[bit]: https://arxiv.org/abs/1912.11370
+
+[convnextv1]: https://arxiv.org/abs/2201.03545
+
+[dinov3]: https://arxiv.org/abs/2508.10104
+
+[convnextv2]: https://arxiv.org/abs/2301.00808
+
+[resnet]: https://arxiv.org/abs/1512.03385

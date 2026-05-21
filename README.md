@@ -12,6 +12,17 @@ Julia ports of [`timm`][timm] (PyTorch Image Models, by Ross Wightman) backbones
 for [Lux.jl][lux], with pretrained weights loaded directly from HuggingFace Hub
 in `.safetensors` format. The name is an homage to the project we port from.
 
+## Status
+
+Most of Jimm was written by AI agents driving the porting workflow
+encoded in `.claude/skills/timm-to-lux/`, with human review at each
+phase and the parity tests as the correctness backstop. The code is
+already being used in real projects, so the registered backbones work
+for forward inference with the released weights. That said: **expect
+bugs and rough edges**, especially around anything the parity tests do
+not exercise (custom training loops, mixed-precision paths, exotic
+input shapes). File issues and PRs.
+
 ## Available backbones
 
 | Family                      | Constructor    | Weights | Weight License                     | Commercial Use |
