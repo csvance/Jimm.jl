@@ -1,6 +1,6 @@
 module ConfigMod
 
-export Config
+export Config, repo_fullname
 
 """
     Config

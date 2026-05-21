@@ -2,6 +2,7 @@ module Tui
 
 using Dates
 using Tachikoma
+import Tachikoma: view, update!
 
 using ..ConfigMod
 using ..GitHubAppMod
@@ -103,7 +104,7 @@ end
 
 function _spawn_run!(m::TuiModel, job::Job)
     cancel = BuildCancel()
-    m.running = RunningJob(job, cancel, now(UTC), first(job.families, ""))
+    m.running = RunningJob(job, cancel, now(UTC), isempty(job.families) ? "" : first(job.families))
     m.mode    = VIEW_RUNNING
     # Clear the log pane between jobs so the user isn't confused by
     # leftover output from the previous build.
