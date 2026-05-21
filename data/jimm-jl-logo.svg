@@ -47,7 +47,7 @@
          j     → Julia red    (#CB3C33) / stroke #5A130F
          l     → Julia green  (#389826) / stroke #143E0D
   -->
-  <g transform="translate(220,128)"
+  <g transform="translate(200,128)"
      font-family="'Helvetica Neue', Helvetica, 'Liberation Sans', Arial, sans-serif"
      font-weight="800"
      stroke-linejoin="round" paint-order="stroke">
