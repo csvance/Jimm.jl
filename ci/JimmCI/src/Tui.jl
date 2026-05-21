@@ -2,7 +2,7 @@ module Tui
 
 using Dates
 using Tachikoma
-import Tachikoma: view, update!, should_quit, task_queue
+import Tachikoma: view, update!, should_quit, task_queue, set_wake!, has_pending_output
 
 using ..ConfigMod
 using ..GitHubAppMod
@@ -48,14 +48,20 @@ end
     # Background tasks (Tachikoma)
     tq::TaskQueue = TaskQueue()
 
+    # Thread-safe log pipeline: background threads put! here; view() drains into log_pane.
+    log_channel::Channel{String} = Channel{String}(Inf)
+    _wake::Union{Nothing,Function} = nothing
+
     refreshing::Bool   = false
     status::String     = "press r to refresh, ↑/↓ to select, Enter to run"
     tick::Int          = 0
     quit::Bool         = false
 end
 
-should_quit(m::TuiModel) = m.quit
-task_queue(m::TuiModel)  = m.tq
+should_quit(m::TuiModel)        = m.quit
+task_queue(m::TuiModel)         = m.tq
+set_wake!(m::TuiModel, f::Function) = (m._wake = f; nothing)
+has_pending_output(m::TuiModel) = isready(m.log_channel)
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -77,7 +83,8 @@ function _row_text(j::Job)
 end
 
 function _push_log!(m::TuiModel, line::AbstractString)
-    push_line!(m.log_pane, String(line))
+    put!(m.log_channel, String(line))
+    m._wake !== nothing && m._wake()
 end
 
 function _log_callback(m::TuiModel)
@@ -123,6 +130,7 @@ function _spawn_run!(m::TuiModel, job::Job)
             if e isa InterruptException || BuilderMod.is_cancelled(cancel)
                 return :cancelled
             end
+            @error "run_job failed" exception=(e, catch_backtrace())
             return e
         end
     end
@@ -318,6 +326,9 @@ update!(m::TuiModel, evt::Event) = nothing
 
 function view(m::TuiModel, f::Frame)
     m.tick += 1
+    while isready(m.log_channel)
+        push_line!(m.log_pane, take!(m.log_channel))
+    end
     buf = f.buffer
 
     outer = Block(

@@ -145,8 +145,13 @@ function _git(cfg::Config, args::Vector{String}; cwd::AbstractString,
     open(log_path, "w") do io
         write(io, "\$ ", string(cmd), "\n")
     end
-    run(pipeline(setenv(cmd, env; dir = cwd);
-                 stdout = log_path, stderr = log_path, append = true))
+    try
+        run(pipeline(setenv(cmd, env; dir = cwd);
+                     stdout = log_path, stderr = log_path, append = true))
+    catch e
+        output = _read_tail(log_path)
+        error("git $(join(args, " ")) failed (cwd=$cwd):\n$output")
+    end
     return nothing
 end
 
@@ -203,6 +208,9 @@ function _make_worktree!(b::Builder, sha::AbstractString)
     wt = joinpath(cfg.workspace_dir, sha)
     isdir(wt) && rm(wt; recursive = true, force = true)
     mkpath(dirname(wt))
+    _git(cfg, ["-C", cfg.mirror_dir, "worktree", "prune"];
+         cwd = cfg.mirror_dir,
+         log_path = joinpath(cfg.log_dir, sha, "worktree-prune.log"))
     _git(cfg, ["-C", cfg.mirror_dir, "worktree", "add", "--detach", wt, sha];
          cwd = cfg.mirror_dir,
          log_path = joinpath(cfg.log_dir, sha, "worktree.log"))
