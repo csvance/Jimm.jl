@@ -250,6 +250,22 @@ Drains every discovered job serially. Re-running immediately is a no-op:
 the Check Runs created on the first invocation make the runner consider
 each commit as already tested.
 
+### Run a specific commit on demand
+
+```bash
+# Re-test the current master HEAD even if it already has check runs:
+ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-run --master'
+
+# Or pin to a specific commit (any length >= 7):
+ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-run --sha 12fd3b8d'
+```
+
+Both flags **bypass discovery and the already-tested filter** entirely
+and run a full sweep on the chosen commit. Use them to retrigger a run
+after fixing a bug in the runner, or to re-verify a specific master
+commit. The PR prompt is also skipped (there is nothing to prompt
+about — you asked for this commit by hand).
+
 ### Skip pending commits without testing them
 
 ```bash

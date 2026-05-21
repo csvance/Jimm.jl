@@ -91,7 +91,15 @@ class Builder:
 
     async def _ensure_mirror(self) -> None:
         mirror = self.cfg.mirror_dir
-        if not mirror.exists():
+        # A valid bare mirror always has a HEAD file. If the dir exists but
+        # HEAD is missing, something stamped an empty directory here (e.g.
+        # `install -d`); wipe it and clone fresh rather than running fetch
+        # against a non-repo.
+        is_bare_repo = mirror.exists() and (mirror / "HEAD").exists()
+        if not is_bare_repo:
+            if mirror.exists():
+                LOG.warning("mirror dir %s is not a bare repo; recloning", mirror)
+                shutil.rmtree(mirror)
             mirror.parent.mkdir(parents=True, exist_ok=True)
             await self._git(
                 ["git", "clone", "--mirror", f"https://github.com/{self.cfg.repo_fullname}.git", str(mirror)],
@@ -451,10 +459,45 @@ async def _confirm_pr_jobs(
     return kept + other_jobs
 
 
+async def _explicit_job(gh: GitHubApp, cfg: Config,
+                         args: argparse.Namespace) -> Job | None:
+    """Build a single Job from --master or --sha; return None if neither is set."""
+    if args.master:
+        sha = await gh.get_default_branch_head(cfg.repo_fullname, "master")
+        return Job(
+            head_sha=sha, base_sha=sha, families=ALL_FAMILIES,
+            full_sweep=True, label=f"master@{sha[:8]} (manual)",
+        )
+    if args.sha:
+        sha = args.sha.lower()
+        if len(sha) < 7:
+            raise SystemExit(f"jimm-ci-run: --sha {sha!r} is too short")
+        return Job(
+            head_sha=sha, base_sha=sha, families=ALL_FAMILIES,
+            full_sweep=True, label=f"{sha[:8]} (manual)",
+        )
+    return None
+
+
 async def _run_async(args: argparse.Namespace) -> int:
     cfg = Config.from_env()
     gh = GitHubApp(cfg.app_id, cfg.installation_id, cfg.private_key)
     try:
+        explicit = await _explicit_job(gh, cfg, args)
+        if explicit is not None:
+            # Manual run: bypass discovery, prompts, and the
+            # already-tested filter. The user is explicitly asking.
+            if args.dry_run:
+                _print_jobs([explicit])
+                return 0
+            builder = Builder(cfg, gh)
+            try:
+                await builder.run(explicit)
+            except Exception:
+                LOG.exception("manual job %s failed at builder level",
+                              explicit.label)
+            return 0
+
         jobs = await discover_jobs(cfg, gh)
         if args.dry_run:
             _print_jobs(jobs)
@@ -492,6 +535,21 @@ def cli_main() -> None:
     parser.add_argument(
         "--dry-run", action="store_true",
         help="print the jobs that would be executed and exit without running them",
+    )
+    target = parser.add_mutually_exclusive_group()
+    target.add_argument(
+        "--master", action="store_true",
+        help=(
+            "run a full sweep against the current master HEAD, bypassing "
+            "discovery, the PR prompt, and the already-tested filter"
+        ),
+    )
+    target.add_argument(
+        "--sha", metavar="SHA",
+        help=(
+            "run a full sweep against the given commit SHA (any length >= 7), "
+            "bypassing discovery and the already-tested filter"
+        ),
     )
     args = parser.parse_args()
     _configure_logging()
