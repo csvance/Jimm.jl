@@ -44,7 +44,12 @@ function request_cancel!(t::BuildCancel)
         p = t.proc
         if p !== nothing && process_running(p)
             try
-                kill(p, Base.SIGTERM)
+                # Child is spawned with `detach = true`, so libuv puts it in
+                # a new session (PID == PGID). Signal the whole group so the
+                # inner `Pkg.test()` Julia and any torch workers go down too —
+                # plain `kill(p, …)` only hits the direct child and leaves
+                # grandchildren writing to the pipe forever.
+                ccall(:kill, Cint, (Cint, Cint), -getpid(p), Base.SIGTERM)
             catch
             end
         end
@@ -86,6 +91,7 @@ function _stream_subprocess(cmd::Cmd, env::Dict{String,String},
     mkpath(dirname(log_path))
     full_cmd = addenv(cmd, env)
     cwd === nothing || (full_cmd = setenv(full_cmd; dir = cwd))
+    full_cmd = Cmd(full_cmd; detach = true)
 
     pipe = Pipe()
     open(log_path, "w") do logio
@@ -105,7 +111,11 @@ function _stream_subprocess(cmd::Cmd, env::Dict{String,String},
                 if is_cancelled(token)
                     sleep(10)
                     if process_running(proc)
-                        try; kill(proc, Base.SIGKILL); catch; end
+                        try
+                            ccall(:kill, Cint, (Cint, Cint),
+                                  -getpid(proc), Base.SIGKILL)
+                        catch
+                        end
                     end
                     return
                 end
@@ -256,9 +266,12 @@ function _ensure_fixtures!(b::Builder, job::Job, wt::AbstractString,
     if !isempty(variant)
         fixture = joinpath(b.cfg.parity_dir, "$(variant)_io.h5")
         if isfile(fixture)
+            _link_fixture_into_worktree(fixture, wt)
             return
         end
-        args = ["--variant", variant]
+        # Pass --out explicitly so the script writes directly to parity_dir
+        # regardless of which version of default_out_path the worktree has.
+        args = ["--variant", variant, "--out", fixture]
     else
         args = ["--all"]
     end
@@ -269,7 +282,45 @@ function _ensure_fixtures!(b::Builder, job::Job, wt::AbstractString,
     rc = _stream_subprocess(cmd, env, log_path, on_line, token; cwd = wt)
     rc == 0 || error("parity dump for $family/$(isempty(variant) ? "all" : variant) " *
                      "failed (rc=$rc); see $log_path")
+
+    if isempty(variant)
+        # For --all: the worktree scripts may not know about JIMM_PARITY_DIR,
+        # so they write to <wt>/data/parity/. Promote any new fixtures into
+        # parity_dir, then mirror everything cached there back into the
+        # worktree so test files that hardcode `data/parity/` find them too.
+        wt_parity = joinpath(wt, "data", "parity")
+        if isdir(wt_parity)
+            for f in readdir(wt_parity; join = true)
+                endswith(f, ".h5") || continue
+                dest = joinpath(b.cfg.parity_dir, basename(f))
+                isfile(dest) || cp(f, dest)
+            end
+        end
+        for f in readdir(b.cfg.parity_dir; join = true)
+            endswith(f, ".h5") || continue
+            _link_fixture_into_worktree(f, wt)
+        end
+    else
+        _link_fixture_into_worktree(fixture, wt)
+    end
     return
+end
+
+# Symlink a cached fixture from `cfg.parity_dir` into the worktree's
+# `data/parity/` so test files baked into the worktree's SHA find it
+# regardless of whether they read `JIMM_PARITY_DIR`. The new test files
+# (post-`f5ebc4e`) ignore the symlink and resolve via env; the old test
+# files traverse it. The symlink dies with the worktree.
+function _link_fixture_into_worktree(fixture::AbstractString, wt::AbstractString)
+    wt_dir = joinpath(wt, "data", "parity")
+    mkpath(wt_dir)
+    dest = joinpath(wt_dir, basename(fixture))
+    (isfile(dest) || islink(dest)) && return
+    try
+        symlink(fixture, dest)
+    catch
+        cp(fixture, dest; force = true)
+    end
 end
 
 # ── Job execution ────────────────────────────────────────────────────
