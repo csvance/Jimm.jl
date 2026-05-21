@@ -14,13 +14,13 @@ in `.safetensors` format. The name is an homage to the project we port from.
 
 ## Available backbones
 
-| Family            | Constructor    | Weights | Weight License             | Commercial Use |
-|-------------------|----------------|---------|----------------------------|----------------|
-| ResNet            | `resnet`       | 5       | [Apache 2.0][apache2]      | ✅              |
-| BiT ResNetV2      | `bit_resnetv2` | 15      | [Apache 2.0][apache2]      | ✅              |
-| ConvNeXt          | `convnext`     | 19      | [Apache 2.0][apache2]      | ✅              |
-| ConvNeXt (DINOv3) | `convnext`     | 4       | [DINOv3 License][dinov3]   | ⚠️             |
-| ConvNeXt V2       | `convnextv2`   | 26      | [CC BY-NC 4.0][convnextv2] | ❌              |
+| Family                      | Constructor    | Weights | Weight License             | Commercial Use |
+|-----------------------------|----------------|---------|----------------------------|----------------|
+| [ResNet][resnet]            | `resnet`       | 5       | [Apache 2.0][license-apache2]      | ✅              |
+| [BiT ResNetV2][bit]         | `bit_resnetv2` | 15      | [Apache 2.0][license-apache2]      | ✅              |
+| [ConvNeXt][convnextv1]      | `convnext`     | 19      | [Apache 2.0][license-apache2]      | ✅              |
+| [ConvNeXt (DINOv3)][dinov3] | `convnext`     | 4       | [DINOv3 License][license-dinov3]   | ⚠️             |
+| [ConvNeXt V2][convnextv2]   | `convnextv2`   | 26      | [CC BY-NC 4.0][license-convnextv2] | ❌              |
 
 ## Basic usage
 
@@ -56,10 +56,7 @@ Jimm.jl is licensed under the Apache License, Version 2.0 (see
 [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). The license matches upstream
 `timm`. The Julia code in this repository is original, but layer naming,
 hyperparameters, padding ordering, and `state_dict` key layout are
-deliberately taken from `timm` so pretrained weights load directly. Where
-`timm` itself credits an earlier upstream (e.g. Google's Big Transfer
-release for BiT ResNet), that attribution chain is preserved in
-[`NOTICE`](NOTICE).
+deliberately taken from `timm` so pretrained weights load directly.
 
 ## Acknowledgements
 
@@ -75,6 +72,11 @@ employer [Medical Metrics Inc.][medicalmetrics].
 [docs-testing]: https://csvance.github.io/Jimm.jl/testing/
 [docs-api]: https://csvance.github.io/Jimm.jl/api/
 [medicalmetrics]: https://medicalmetrics.com/
-[apache2]: https://www.apache.org/licenses/LICENSE-2.0
-[dinov3]: https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md
-[convnextv2]: https://github.com/facebookresearch/ConvNeXt-V2/blob/main/LICENSE
+[license-apache2]: https://www.apache.org/licenses/LICENSE-2.0
+[license-dinov3]: https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md
+[license-convnextv2]: https://github.com/facebookresearch/ConvNeXt-V2/blob/main/LICENSE
+[bit]: https://arxiv.org/abs/1912.11370
+[convnextv1]: https://arxiv.org/abs/2201.03545
+[dinov3]: https://arxiv.org/abs/2508.10104
+[convnextv2]: https://arxiv.org/abs/2301.00808
+[resnet]: https://arxiv.org/abs/1512.03385
