@@ -175,7 +175,7 @@ The short version, from a contributor's perspective:
   API. Look at the `jimm-ci / <family>` checks on the PR.
 
 The separate documentation workflow under
-`.github/workflows/Documentation.yml` is a hosted GitHub Actions
+`.github/workflows/docs.yml` is a hosted GitHub Actions
 job. It builds and deploys this documentation site without needing
 parity weights or fixtures, so the regular runners are sufficient
 for that path.
