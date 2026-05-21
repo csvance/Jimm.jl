@@ -18,6 +18,10 @@ data/parity/*.h5
 # Cached HuggingFace weights when callers cache inside the package tree
 weights/
 
+# Documenter
+docs/build/
+docs/site/
+
 # Editor
 .vscode/
 .idea/

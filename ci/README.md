@@ -6,6 +6,42 @@ the Checks API. There is **no webhook listener, no public endpoint, and
 no domain name involved**, every run is started by the maintainer, by
 hand, over SSH.
 
+## Why a custom, self-hosted runner
+
+Hosted CI providers (GitHub Actions, Buildkite cloud, etc.) are the
+obvious default, and were ruled out on purpose. Jimm.jl's test suite is
+a *parity* suite: every variant of every backbone is checked against
+the corresponding `timm` PyTorch reference, which means each run needs
+two large, expensive-to-produce artifacts:
+
+1. **Reference weights.** Jimm covers many ResNet, ViT, and adjacent
+   variants. The matching `timm` checkpoints on HuggingFace add up to
+   hundreds of gigabytes across the supported variant set. Pulling
+   them fresh on every CI run would saturate egress, blow past
+   ephemeral-runner disk quotas, and burn HuggingFace bandwidth for no
+   added signal.
+2. **Parity fixtures.** Each variant's parity test consumes an HDF5
+   fixture produced by running the `timm` model under PyTorch and
+   dumping inputs, intermediate activations, and outputs. Generating
+   one fixture takes a few minutes of CPU and a PyTorch + timm
+   environment (a couple of gigabytes of wheels). Doing this from
+   scratch per run would dominate wall time and make the CI feedback
+   loop unusable.
+
+The self-hosted runner keeps both artifacts on a persistent state
+directory (`<state>/parity/` for fixtures, `<state>/hf-cache/` for
+weights, `<state>/python-env/` for the PyTorch venv). The first run
+for any new variant pays the dump cost once; every later run, on any
+PR or master commit, is a cache hit. Combined with the path-filtered
+job routing in `PathFilter.jl`, a typical PR run only re-tests the
+families it actually touched, against fixtures that already exist on
+disk.
+
+The trade-off is operational: one VM the maintainer has to maintain,
+and per-PR human approval before any code from a contributor runs on
+it. The `jimm-ci` TUI exists to make that approval step a single
+keystroke rather than a chore.
+
 The same binary covers four jobs:
 
 * **Default (`jimm-ci`)** launches a TUI showing every PR and recent
