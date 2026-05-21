@@ -37,11 +37,14 @@ RESNET_VARIANTS_FULL: Mapping[str, str] = {
 
 
 def default_out_path(short_key: str, in_chans: int = 3) -> str:
-    here = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.abspath(os.path.join(here, "..", ".."))
     suffix = "" if in_chans == 3 else f"_in{in_chans}c"
-    return os.path.join(repo_root, "data", "parity",
-                        f"{short_key}{suffix}_io.h5")
+    parity_dir = os.environ.get("JIMM_PARITY_DIR")
+    if parity_dir is None:
+        here = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.abspath(os.path.join(here, "..", ".."))
+        parity_dir = os.path.join(repo_root, "data", "parity")
+    os.makedirs(parity_dir, exist_ok=True)
+    return os.path.join(parity_dir, f"{short_key}{suffix}_io.h5")
 
 
 def run_one(

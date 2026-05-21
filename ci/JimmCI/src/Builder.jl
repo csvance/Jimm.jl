@@ -44,7 +44,12 @@ function request_cancel!(t::BuildCancel)
         p = t.proc
         if p !== nothing && process_running(p)
             try
-                kill(p, Base.SIGTERM)
+                # Child is spawned with `detach = true`, so libuv puts it in
+                # a new session (PID == PGID). Signal the whole group so the
+                # inner `Pkg.test()` Julia and any torch workers go down too —
+                # plain `kill(p, …)` only hits the direct child and leaves
+                # grandchildren writing to the pipe forever.
+                ccall(:kill, Cint, (Cint, Cint), -getpid(p), Base.SIGTERM)
             catch
             end
         end
@@ -86,6 +91,7 @@ function _stream_subprocess(cmd::Cmd, env::Dict{String,String},
     mkpath(dirname(log_path))
     full_cmd = addenv(cmd, env)
     cwd === nothing || (full_cmd = setenv(full_cmd; dir = cwd))
+    full_cmd = Cmd(full_cmd; detach = true)
 
     pipe = Pipe()
     open(log_path, "w") do logio
@@ -105,7 +111,11 @@ function _stream_subprocess(cmd::Cmd, env::Dict{String,String},
                 if is_cancelled(token)
                     sleep(10)
                     if process_running(proc)
-                        try; kill(proc, Base.SIGKILL); catch; end
+                        try
+                            ccall(:kill, Cint, (Cint, Cint),
+                                  -getpid(proc), Base.SIGKILL)
+                        catch
+                        end
                     end
                     return
                 end
@@ -145,8 +155,13 @@ function _git(cfg::Config, args::Vector{String}; cwd::AbstractString,
     open(log_path, "w") do io
         write(io, "\$ ", string(cmd), "\n")
     end
-    run(pipeline(setenv(cmd, env; dir = cwd);
-                 stdout = log_path, stderr = log_path, append = true))
+    try
+        run(pipeline(setenv(cmd, env; dir = cwd);
+                     stdout = log_path, stderr = log_path, append = true))
+    catch e
+        output = _read_tail(log_path)
+        error("git $(join(args, " ")) failed (cwd=$cwd):\n$output")
+    end
     return nothing
 end
 
@@ -183,30 +198,18 @@ function _ensure_mirror!(b::Builder)
     end
 end
 
-function _link_parity_dir!(cfg::Config, wt::AbstractString)
-    mkpath(cfg.parity_dir)
-    data = joinpath(wt, "data")
-    mkpath(data)
-    link = joinpath(data, "parity")
-    if islink(link) || ispath(link)
-        if isdir(link) && !islink(link)
-            rm(link; recursive = true)
-        else
-            rm(link)
-        end
-    end
-    symlink(cfg.parity_dir, link)
-end
-
 function _make_worktree!(b::Builder, sha::AbstractString)
     cfg = b.cfg
     wt = joinpath(cfg.workspace_dir, sha)
     isdir(wt) && rm(wt; recursive = true, force = true)
     mkpath(dirname(wt))
+    mkpath(cfg.parity_dir)
+    _git(cfg, ["-C", cfg.mirror_dir, "worktree", "prune"];
+         cwd = cfg.mirror_dir,
+         log_path = joinpath(cfg.log_dir, sha, "worktree-prune.log"))
     _git(cfg, ["-C", cfg.mirror_dir, "worktree", "add", "--detach", wt, sha];
          cwd = cfg.mirror_dir,
          log_path = joinpath(cfg.log_dir, sha, "worktree.log"))
-    _link_parity_dir!(cfg, wt)
     return wt
 end
 
@@ -232,6 +235,7 @@ function _env_for_family(cfg::Config, family::AbstractString, variant::AbstractS
     env["JULIA_LOAD_PATH"]    = "@:@v#.#:@stdlib"
     env["JIMM_TEST_FAMILIES"] = String(family)
     env["JIMM_TEST_VARIANTS"] = String(variant)
+    env["JIMM_PARITY_DIR"]    = cfg.parity_dir
     if cfg.hf_token !== nothing
         env["HF_TOKEN"]                = cfg.hf_token
         env["HUGGING_FACE_HUB_TOKEN"]  = cfg.hf_token
@@ -243,6 +247,7 @@ function _env_for_sidecar(cfg::Config)
     env = copy(ENV)
     env["UV_PROJECT_ENVIRONMENT"] = cfg.python_env
     env["HF_HUB_CACHE"]           = cfg.hf_cache
+    env["JIMM_PARITY_DIR"]        = cfg.parity_dir
     if cfg.hf_token !== nothing
         env["HF_TOKEN"]               = cfg.hf_token
         env["HUGGING_FACE_HUB_TOKEN"] = cfg.hf_token
@@ -259,22 +264,90 @@ function _ensure_fixtures!(b::Builder, job::Job, wt::AbstractString,
     sidecar === nothing && return
 
     if !isempty(variant)
-        fixture = joinpath(b.cfg.parity_dir, "$(variant)_io.h5")
-        if isfile(fixture)
-            return
+        # Every family's test file has both a 3-channel parity testset and
+        # an `in_chans=1` testset (the latter exercises timm's
+        # `adapt_input_conv` stem path). Dump both fixtures or the in1c
+        # testset silently skips with "fixture missing".
+        for ic in (3, 1)
+            _dump_variant_fixture!(b, job, wt, family, sidecar, variant, ic,
+                                   on_line, token)
         end
-        args = ["--variant", variant]
-    else
-        args = ["--all"]
+        return
     end
 
+    # ── Full sweep ──
     log_path = joinpath(b.cfg.log_dir, job.head_sha, "$family-dump.log")
-    cmd = Cmd(String["uv", "run", "--project", wt, "python", sidecar, args...])
-    env = _env_for_sidecar(b.cfg)
-    rc = _stream_subprocess(cmd, env, log_path, on_line, token; cwd = wt)
-    rc == 0 || error("parity dump for $family/$(isempty(variant) ? "all" : variant) " *
-                     "failed (rc=$rc); see $log_path")
+    for ic in (3, 1)
+        ic_args = ic == 3 ? String[] : ["--in-chans", "1"]
+        cmd = Cmd(String["uv", "run", "--project", wt, "python", sidecar,
+                         "--all", ic_args...])
+        env = _env_for_sidecar(b.cfg)
+        rc = _stream_subprocess(cmd, env, log_path, on_line, token; cwd = wt)
+        rc == 0 || error("parity dump for $family/all in_chans=$ic " *
+                         "failed (rc=$rc); see $log_path")
+    end
+
+    # The worktree scripts may not know about JIMM_PARITY_DIR, so they
+    # write to <wt>/data/parity/. Promote any new fixtures into parity_dir,
+    # then mirror everything cached there back into the worktree so test
+    # files that hardcode `data/parity/` find them too.
+    wt_parity = joinpath(wt, "data", "parity")
+    if isdir(wt_parity)
+        for f in readdir(wt_parity; join = true)
+            endswith(f, ".h5") || continue
+            dest = joinpath(b.cfg.parity_dir, basename(f))
+            isfile(dest) || cp(f, dest)
+        end
+    end
+    for f in readdir(b.cfg.parity_dir; join = true)
+        endswith(f, ".h5") || continue
+        _link_fixture_into_worktree(f, wt)
+    end
     return
+end
+
+# Dump a single (variant, in_chans) parity fixture into `cfg.parity_dir`
+# if it isn't already cached, then symlink it into the worktree. The 3-ch
+# fixture is named `<variant>_io.h5`; non-default channel counts get the
+# `_in<N>c` suffix that the test files expect.
+function _dump_variant_fixture!(b::Builder, job::Job, wt::AbstractString,
+                                 family::AbstractString,
+                                 sidecar::AbstractString,
+                                 variant::AbstractString, in_chans::Int,
+                                 on_line::Function, token::BuildCancel)
+    suffix = in_chans == 3 ? "" : "_in$(in_chans)c"
+    fixture = joinpath(b.cfg.parity_dir, "$(variant)$(suffix)_io.h5")
+    if !isfile(fixture)
+        args = ["--variant", variant,
+                "--in-chans", string(in_chans),
+                "--out", fixture]
+        log_path = joinpath(b.cfg.log_dir, job.head_sha,
+                            "$(family)$(suffix)-dump.log")
+        cmd = Cmd(String["uv", "run", "--project", wt, "python",
+                         sidecar, args...])
+        env = _env_for_sidecar(b.cfg)
+        rc = _stream_subprocess(cmd, env, log_path, on_line, token; cwd = wt)
+        rc == 0 || error("parity dump for $family/$variant in_chans=$in_chans " *
+                         "failed (rc=$rc); see $log_path")
+    end
+    _link_fixture_into_worktree(fixture, wt)
+end
+
+# Symlink a cached fixture from `cfg.parity_dir` into the worktree's
+# `data/parity/` so test files baked into the worktree's SHA find it
+# regardless of whether they read `JIMM_PARITY_DIR`. The new test files
+# (post-`f5ebc4e`) ignore the symlink and resolve via env; the old test
+# files traverse it. The symlink dies with the worktree.
+function _link_fixture_into_worktree(fixture::AbstractString, wt::AbstractString)
+    wt_dir = joinpath(wt, "data", "parity")
+    mkpath(wt_dir)
+    dest = joinpath(wt_dir, basename(fixture))
+    (isfile(dest) || islink(dest)) && return
+    try
+        symlink(fixture, dest)
+    catch
+        cp(fixture, dest; force = true)
+    end
 end
 
 # ── Job execution ────────────────────────────────────────────────────

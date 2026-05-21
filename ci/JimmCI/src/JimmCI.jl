@@ -144,8 +144,10 @@ function cli_main(argv::AbstractVector = ARGS)
         return
     end
 
-    Logging.global_logger(ConsoleLogger(stderr,
-        get(ENV, "JIMM_CI_LOG_LEVEL", "INFO") == "DEBUG" ? Logging.Debug : Logging.Info))
+    _logfile = open("jimm-ci.log", "a")
+    min_level = get(ENV, "JIMM_CI_LOG_LEVEL", "INFO") == "DEBUG" ? Logging.Debug : Logging.Info
+    Logging.global_logger(ConsoleLogger(_logfile, min_level))
+    @info "jimm-ci starting" time=now(UTC)
 
     cfg = try
         ConfigMod.from_env()
@@ -190,7 +192,9 @@ function (@main)(args::Vector{String})
         if e isa InterruptException
             return 130
         end
-        showerror(stderr, e, catch_backtrace())
+        bt = catch_backtrace()
+        @error "fatal exception" exception=(e, bt)
+        showerror(stderr, e, bt)
         println(stderr)
         return 1
     end
