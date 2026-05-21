@@ -13,6 +13,7 @@ from collections.abc import Iterable
 _SHARED_PREFIXES: tuple[str, ...] = (
     "src/Layers/",
     "src/Interop/",
+    "src/Models/ConvNeXtCommon/",
     "ci/",
 )
 
@@ -26,6 +27,7 @@ _SHARED_EXACT: frozenset[str] = frozenset({
 
 _FAMILY_PREFIXES: dict[str, tuple[str, ...]] = {
     "bit":        ("src/Models/ResNetV2/",),
+    "resnet":     ("src/Models/ResNet/",),
     "convnext":   ("src/Models/ConvNeXt/",),
     "convnextv2": ("src/Models/ConvNeXtV2/",),
     "infra":      (),
@@ -33,6 +35,7 @@ _FAMILY_PREFIXES: dict[str, tuple[str, ...]] = {
 
 _FAMILY_EXACT: dict[str, frozenset[str]] = {
     "bit":        frozenset({"test/test_bit_resnet.jl"}),
+    "resnet":     frozenset({"test/test_resnet.jl"}),
     "convnext":   frozenset({"test/test_convnext.jl"}),
     "convnextv2": frozenset({"test/test_convnextv2.jl"}),
     "infra":      frozenset({
@@ -42,7 +45,7 @@ _FAMILY_EXACT: dict[str, frozenset[str]] = {
     }),
 }
 
-ALL_FAMILIES: tuple[str, ...] = ("infra", "bit", "convnext", "convnextv2")
+ALL_FAMILIES: tuple[str, ...] = ("infra", "bit", "resnet", "convnext", "convnextv2")
 
 # Variant key to use when a family is included in a PR-scope run. Empty string
 # means "no variant filter", i.e. run the family's full test set; used for
@@ -50,6 +53,7 @@ ALL_FAMILIES: tuple[str, ...] = ("infra", "bit", "convnext", "convnextv2")
 REPRESENTATIVE_VARIANT: dict[str, str] = {
     "infra":      "",
     "bit":        "resnetv2_50x1_bit_goog_in21k_ft_in1k",
+    "resnet":     "resnet50_a1_in1k",
     "convnext":   "convnext_tiny_fb_in1k",
     "convnextv2": "convnextv2_atto_fcmae_ft_in1k",
 }

@@ -13,6 +13,10 @@ hand, over SSH.
 * `jimm-ci-pr` — prints the commits in a PR with the exact label string
   that approves each one, and (with `--apply`) creates and applies the
   label for the PR head in one command.
+* `jimm-ci-skip` — posts `conclusion=skipped` Check Runs on one or more
+  commits so the runner stops considering them. Use it to clear a
+  backlog of commits you've decided not to retroactively test
+  (`--all-pending`) or to permanently exclude a single SHA.
 
 ```
                  ┌──────────────────────────────────────┐
@@ -242,6 +246,17 @@ ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-pr <pr-url> --apply'
 ```
 
 Once a PR head is labeled, the next `jimm-ci-run` picks it up.
+
+### Skip pending commits without testing them
+
+```bash
+ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-skip --all-pending'
+```
+
+Posts a `skipped` Check Run for every family on every currently-pending
+commit so the runner stops reconsidering them. Pass explicit SHAs to
+skip a specific subset (`jimm-ci-skip <sha> [<sha> ...]`), or add
+`--dry-run` to preview which commits would be marked.
 
 ## Operations
 

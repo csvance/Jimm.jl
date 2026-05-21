@@ -11,6 +11,7 @@ dependencies = [
 [project.scripts]
 jimm-ci-run = "jimm_ci.runner:cli_main"
 jimm-ci-pr = "jimm_ci.inspector:cli_main"
+jimm-ci-skip = "jimm_ci.skip:cli_main"
 
 [build-system]
 requires = ["hatchling"]

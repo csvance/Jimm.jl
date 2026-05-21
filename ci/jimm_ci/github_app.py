@@ -125,10 +125,13 @@ class GitHubApp:
         name: str,
         *,
         status: str = "in_progress",
+        conclusion: str | None = None,
         details_url: str | None = None,
         output: dict[str, Any] | None = None,
     ) -> CheckRun:
         body: dict[str, Any] = {"name": name, "head_sha": head_sha, "status": status}
+        if conclusion is not None:
+            body["conclusion"] = conclusion
         if details_url is not None:
             body["details_url"] = details_url
         if output is not None:
