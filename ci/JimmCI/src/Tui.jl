@@ -67,7 +67,7 @@ has_pending_output(m::TuiModel) = isready(m.log_channel)
 # Spawn the initial discovery from `init!` rather than blocking before
 # `app(model)` runs — the user sees the spinner instead of a frozen
 # terminal while the GitHub API call is in flight.
-init!(m::TuiModel, _t) = (_spawn_refresh!(m); nothing)
+init!(m::TuiModel, ::Tachikoma.Terminal) = (_spawn_refresh!(m); nothing)
 
 # Signal cancellation for any running job when the app exits — so
 # pressing `q` (or Ctrl+C) during a build still tears down the
