@@ -1,8 +1,9 @@
 """Minimal GitHub App client.
 
-Handles JWT minting, installation token caching, the small slice of the
-Checks API we need, and the Compare API for path-filter input. Uses httpx
-for async I/O and PyJWT for RS256 signing. No other GitHub libraries.
+Handles JWT minting, installation token caching, the slice of the Checks
+API we need, the Compare API for path-filter input, and small helpers for
+listing PRs / commits / check-runs and applying labels. Uses httpx for
+async I/O and PyJWT for RS256 signing. No other GitHub libraries.
 """
 from __future__ import annotations
 
@@ -88,23 +89,34 @@ class GitHubApp:
         r.raise_for_status()
         return r
 
-    async def _app_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
-        """Request authenticated as the App itself (JWT), not as an installation.
-
-        Used by webhook-delivery endpoints (`/app/hook/deliveries`) which are
-        scoped to the app, not to a specific installation. `url` may be a full
-        URL (used to follow Link-header pagination) or an API path.
-        """
-        if not url.startswith("http"):
-            url = f"{API}{url}"
-        app_jwt = self._mint_jwt()
-        headers = kwargs.pop("headers", {})
-        headers.setdefault("Authorization", f"Bearer {app_jwt}")
-        headers.setdefault("Accept", "application/vnd.github+json")
-        headers.setdefault("X-GitHub-Api-Version", "2022-11-28")
-        r = await self._client.request(method, url, headers=headers, **kwargs)
-        r.raise_for_status()
-        return r
+    async def _paginated(self, path: str, *, per_page: int = 100,
+                         max_pages: int = 20) -> list[dict[str, Any]]:
+        sep = "&" if "?" in path else "?"
+        url: str | None = f"{path}{sep}per_page={per_page}"
+        out: list[dict[str, Any]] = []
+        pages = 0
+        while url and pages < max_pages:
+            if url.startswith("http"):
+                token = await self.installation_token()
+                r = await self._client.get(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                    },
+                )
+                r.raise_for_status()
+            else:
+                r = await self._request("GET", url)
+            page = r.json()
+            if not isinstance(page, list):
+                break
+            out.extend(page)
+            next_link = r.links.get("next") if hasattr(r, "links") else None
+            url = next_link["url"] if next_link else None
+            pages += 1
+        return out
 
     async def create_check_run(
         self,
@@ -151,31 +163,63 @@ class GitHubApp:
         r = await self._request("GET", f"/repos/{repo}/branches/{branch}")
         return r.json()["commit"]["sha"]
 
-    async def iter_deliveries(
-        self, *, per_page: int = 100, max_pages: int = 20,
-    ) -> list[dict[str, Any]]:
-        """Return webhook delivery summaries newest-first across `max_pages` pages.
+    async def list_open_pulls(self, repo: str) -> list[dict[str, Any]]:
+        """List open PRs with head/base, labels, and fork status."""
+        return await self._paginated(f"/repos/{repo}/pulls?state=open")
 
-        Each entry contains id, guid, delivered_at, event, action, status_code,
-        and redelivery flag. The full payload is not included; that requires a
-        per-delivery GET, which we never need because we re-trigger delivery via
-        the attempts endpoint instead.
+    async def list_commits(self, repo: str, *, sha: str, since: str) -> list[dict[str, Any]]:
+        """List commits on `sha` (branch or commit) committed at or after `since`.
+
+        `since` must be an ISO-8601 timestamp (e.g. `2026-04-20T00:00:00Z`).
         """
-        out: list[dict[str, Any]] = []
-        url: str | None = f"/app/hook/deliveries?per_page={per_page}"
-        pages = 0
-        while url and pages < max_pages:
-            r = await self._app_request("GET", url)
-            page = r.json()
-            if not isinstance(page, list):
-                break
-            out.extend(page)
-            next_link = r.links.get("next") if hasattr(r, "links") else None
-            url = next_link["url"] if next_link else None
-            pages += 1
-        return out
+        return await self._paginated(
+            f"/repos/{repo}/commits?sha={sha}&since={since}",
+        )
 
-    async def redeliver(self, delivery_id: int) -> None:
-        await self._app_request(
-            "POST", f"/app/hook/deliveries/{delivery_id}/attempts",
+    async def list_check_runs(self, repo: str, ref: str) -> list[dict[str, Any]]:
+        """Return all check runs for `ref`. Paginated under `check_runs`."""
+        out: list[dict[str, Any]] = []
+        per_page = 100
+        page = 1
+        while True:
+            r = await self._request(
+                "GET",
+                f"/repos/{repo}/commits/{ref}/check-runs"
+                f"?per_page={per_page}&page={page}",
+            )
+            data = r.json()
+            runs = data.get("check_runs", []) if isinstance(data, dict) else []
+            out.extend(runs)
+            if len(runs) < per_page:
+                return out
+            page += 1
+            if page > 20:
+                return out
+
+    async def list_pull_commits(self, repo: str, number: int) -> list[dict[str, Any]]:
+        """List commits associated with PR `number`, oldest first."""
+        return await self._paginated(f"/repos/{repo}/pulls/{number}/commits")
+
+    async def ensure_label(self, repo: str, name: str,
+                            *, color: str = "0e8a16",
+                            description: str | None = None) -> None:
+        """Create label `name` on the repo if it does not already exist."""
+        try:
+            await self._request("GET", f"/repos/{repo}/labels/{name}")
+            return
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 404:
+                raise
+        body: dict[str, Any] = {"name": name, "color": color}
+        if description is not None:
+            body["description"] = description
+        await self._request("POST", f"/repos/{repo}/labels", json=body)
+
+    async def add_labels_to_issue(self, repo: str, number: int,
+                                   labels: list[str]) -> None:
+        """Add `labels` to issue/PR `number` (additive; does not remove)."""
+        await self._request(
+            "POST",
+            f"/repos/{repo}/issues/{number}/labels",
+            json={"labels": labels},
         )
