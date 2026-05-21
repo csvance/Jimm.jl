@@ -181,4 +181,20 @@ function cli_main(argv::AbstractVector = ARGS)
     return
 end
 
+# `@main` registers this as the package entry point for `julia -m JimmCI`,
+# which is the launcher shim that `Pkg.Apps.add` installs to `~/.julia/bin/`.
+function (@main)(args::Vector{String})
+    try
+        cli_main(args)
+    catch e
+        if e isa InterruptException
+            return 130
+        end
+        showerror(stderr, e, catch_backtrace())
+        println(stderr)
+        return 1
+    end
+    return 0
+end
+
 end # module

@@ -185,14 +185,18 @@ sudo -u ci bash -lc 'curl -fsSL https://install.julialang.org | sh -s -- --yes'
 ln -sf /home/ci/.juliaup/bin/julia /usr/local/bin/julia
 ```
 
-### 4. Clone the repository, instantiate the runner, create state dirs
+### 4. Clone the repository, install the runner, create state dirs
 
 ```bash
 install -d -o ci -g ci /opt/jimm-ci
 sudo -u ci git clone https://github.com/<OWNER>/Jimm.jl.git /opt/jimm-ci/Jimm.jl
 
-sudo -u ci julia --project=/opt/jimm-ci/Jimm.jl/ci/JimmCI \
-    -e 'using Pkg; Pkg.instantiate()'
+# Install JimmCI via Pkg.Apps. This drops a launcher into ~ci/.julia/bin/
+# (Julia's user app directory) and pulls in Tachikoma/HTTP/JSON3/etc.
+sudo -u ci julia -e '
+    using Pkg
+    Pkg.Apps.develop(path = "/opt/jimm-ci/Jimm.jl/ci/JimmCI")
+'
 
 install -d -o ci -g ci \
     /var/lib/jimm-ci \
@@ -201,8 +205,23 @@ install -d -o ci -g ci \
     /var/lib/jimm-ci/parity \
     /var/lib/jimm-ci/python-env
 
-ln -sf /opt/jimm-ci/Jimm.jl/ci/JimmCI/bin/jimm-ci /usr/local/bin/jimm-ci
+# Make jimm-ci available on every shell PATH (the alternative is to add
+# ~ci/.julia/bin to PATH in the ci user's .profile).
+ln -sf /home/ci/.julia/bin/jimm-ci /usr/local/bin/jimm-ci
 ```
+
+`Pkg.Apps.develop` tracks the cloned checkout, so `git pull` followed by
+`jimm-ci` is enough to redeploy — no re-instantiate step.
+
+If you'd rather pin a tagged release than track the cloned checkout,
+use `Pkg.Apps.add(url = "https://github.com/<OWNER>/Jimm.jl",
+subdir = "ci/JimmCI")` instead. The launcher writes to
+`~/.julia/bin/jimm-ci` either way.
+
+The repo ships a thin `ci/JimmCI/bin/jimm-ci` shell wrapper as a
+fallback for environments where running `Pkg.Apps.develop` is awkward;
+it does `julia --project=... -e 'using JimmCI; JimmCI.cli_main()'` and
+honors `JIMM_CI_JULIA` for the Julia binary path.
 
 The runner creates `mirror.git`, `work/`, and `logs/` under
 `/var/lib/jimm-ci/` on first invocation. The parity sidecars need a
@@ -332,14 +351,18 @@ you need the full log.
 ### Redeploy
 
 ```bash
-ssh ci@<vm> 'sudo -u ci git -C /opt/jimm-ci/Jimm.jl pull --ff-only && \
-             sudo -u ci julia --project=/opt/jimm-ci/Jimm.jl/ci/JimmCI \
-                -e "using Pkg; Pkg.instantiate()"'
+ssh ci@<vm> 'sudo -u ci git -C /opt/jimm-ci/Jimm.jl pull --ff-only'
 ```
 
-No service to restart; the next `jimm-ci` invocation will pick up the
-new code automatically. The `Pkg.instantiate()` step is only required
-when `ci/JimmCI/Manifest.toml` changes.
+No service to restart; because `Pkg.Apps.develop` tracks the clone, the
+next `jimm-ci` invocation picks up the new code automatically. If
+`ci/JimmCI/Project.toml` gained a new dependency, also run:
+
+```bash
+ssh ci@<vm> 'sudo -u ci julia -e "using Pkg; Pkg.Apps.develop(path = \"/opt/jimm-ci/Jimm.jl/ci/JimmCI\")"'
+```
+
+which re-resolves and regenerates the launcher.
 
 ### Forcing a re-test of an already-tested commit
 
