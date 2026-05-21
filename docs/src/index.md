@@ -23,13 +23,13 @@ input shapes). File issues and PRs.
 
 ## Available backbones
 
-| Family                      | Constructor    | Weights | Weight License                     | Commercial Use |
-|-----------------------------|----------------|---------|------------------------------------|----------------|
-| [ResNet][resnet]            | `resnet`       | 5       | [Apache 2.0][license-apache2]      | ✅              |
-| [BiT ResNetV2][bit]         | `bit_resnetv2` | 15      | [Apache 2.0][license-apache2]      | ✅              |
-| [ConvNeXt][convnextv1]      | `convnext`     | 19      | [Apache 2.0][license-apache2]      | ✅              |
-| [ConvNeXt (DINOv3)][dinov3] | `convnext`     | 4       | [DINOv3 License][license-dinov3]   | ⚠️             |
-| [ConvNeXt V2][convnextv2]   | `convnextv2`   | 26      | [CC BY-NC 4.0][license-convnextv2] | ❌              |
+| Family                                                                              | Constructor    | Weights | Weight License                                                                                             | Commercial Use |
+|-------------------------------------------------------------------------------------|----------------|---------|------------------------------------------------------------------------------------------------------------|----------------|
+| [ResNet](https://arxiv.org/abs/1512.03385)                                          | `resnet`       | 5       | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
+| [BiT ResNetV2](https://arxiv.org/abs/1912.11370)                                    | `bit_resnetv2` | 15      | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
+| [ConvNeXt](https://arxiv.org/abs/2201.03545)                                        | `convnext`     | 19      | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
+| [ConvNeXt (DINOv3)](https://arxiv.org/abs/2508.10104)                               | `convnext`     | 4       | [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md)                          | ⚠️             |
+| [ConvNeXt V2](https://arxiv.org/abs/2301.00808)                                     | `convnextv2`   | 26      | [CC BY-NC 4.0](https://github.com/facebookresearch/ConvNeXt-V2/blob/main/LICENSE)                         | ❌              |
 
 ## At a glance
 
@@ -59,36 +59,3 @@ inputs.
 - [Testing](testing.md): how the parity test suite is structured, the
   env-var filters, and how to dump a fixture for a new variant.
 - [API Reference](api/index.md): every exported function and type.
-
-
-[timm]: https://github.com/huggingface/pytorch-image-models
-
-[lux]: https://lux.csail.mit.edu/
-
-[docs]: https://csvance.github.io/Jimm.jl/
-
-[docs-getting-started]: https://csvance.github.io/Jimm.jl/getting_started/
-
-[docs-porting]: https://csvance.github.io/Jimm.jl/porting/
-
-[docs-testing]: https://csvance.github.io/Jimm.jl/testing/
-
-[docs-api]: https://csvance.github.io/Jimm.jl/api/
-
-[medicalmetrics]: https://medicalmetrics.com/
-
-[license-apache2]: https://www.apache.org/licenses/LICENSE-2.0
-
-[license-dinov3]: https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md
-
-[license-convnextv2]: https://github.com/facebookresearch/ConvNeXt-V2/blob/main/LICENSE
-
-[bit]: https://arxiv.org/abs/1912.11370
-
-[convnextv1]: https://arxiv.org/abs/2201.03545
-
-[dinov3]: https://arxiv.org/abs/2508.10104
-
-[convnextv2]: https://arxiv.org/abs/2301.00808
-
-[resnet]: https://arxiv.org/abs/1512.03385
