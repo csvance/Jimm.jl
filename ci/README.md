@@ -7,16 +7,13 @@ domain name involved** — every run is started by the maintainer, by
 hand, over SSH.
 
 * `jimm-ci-run` — finds every commit eligible to be tested (open PRs
-  bearing a per-SHA approval label, plus master commits in the last 30
-  days with no completed `jimm-ci` check) and runs the suite against
-  each, posting Check Run results to GitHub.
-* `jimm-ci-pr` — prints the commits in a PR with the exact label string
-  that approves each one, and (with `--apply`) creates and applies the
-  label for the PR head in one command.
+  plus master commits in the last 30 days with no completed `jimm-ci`
+  check), interactively prompts y/n on each pull request, and runs the
+  suite against every confirmed job. Master commits run automatically.
 * `jimm-ci-skip` — posts `conclusion=skipped` Check Runs on one or more
   commits so the runner stops considering them. Use it to clear a
-  backlog of commits you've decided not to retroactively test
-  (`--all-pending`) or to permanently exclude a single SHA.
+  backlog of pending master commits (`--all-pending`) or to permanently
+  exclude a single SHA.
 
 ```
                  ┌──────────────────────────────────────┐
@@ -26,8 +23,8 @@ hand, over SSH.
                  └────────────┬─────────────────────────┘
                               │ HTTPS (outbound only)
                   ┌───────────▼─────────────┐
-                  │ jimm-ci-run / jimm-ci-pr│
-                  │   (launched over SSH)   │
+                  │ jimm-ci-run             │
+                  │  (launched over SSH)    │
                   │  git mirror + worktree  │
                   │  julia Pkg.test         │
                   └─────────────────────────┘
@@ -35,19 +32,27 @@ hand, over SSH.
 
 ## Approval model
 
-A pull request is approved for CI by attaching a label of the form
-`ci-approved-<short-sha>`, where `<short-sha>` is the first seven hex
-characters of the PR head commit. The label is **per-SHA**: if a new
-commit is pushed to the PR, the encoded SHA stops matching the head and
-`jimm-ci-run` skips the PR until a label with the new short SHA is
-applied. This prevents an approved PR from silently running tests on an
-unreviewed follow-up commit.
+When `jimm-ci-run` discovers an open PR with families that have no
+completed `jimm-ci` Check Run yet, it prompts at the terminal:
+
+```
+PR #42: Add InceptionNeXt family
+    head:     a1b2c3d4e5f6
+    families: infra,bit,resnet,convnext,convnextv2
+    run? [y/N]:
+```
+
+* `y` queues the PR for testing.
+* `n` (or empty / Ctrl-D) **cancels** the PR by posting `skipped` Check
+  Runs on its current head SHA, so the runner does not re-prompt until
+  the author pushes a new commit (which gives a new head SHA, and
+  therefore no `skipped` check on it).
+
+The prompt is the only place a PR can opt in. Always review the diff at
+the current head SHA before answering `y` — there is no second gate.
 
 Master commits are not gated — merged code is presumed reviewed at merge
-time.
-
-The label prefix is configurable via `JIMM_CI_APPROVAL_LABEL_PREFIX`
-(default `ci-approved-`).
+time — and run automatically after the PR prompts finish.
 
 ## Layout
 
@@ -55,9 +60,9 @@ The label prefix is configurable via `JIMM_CI_APPROVAL_LABEL_PREFIX`
 ci/
 ├── pyproject.toml          # uv-managed Python project, entry points
 └── jimm_ci/
-    ├── runner.py           # jimm-ci-run: discover + build loop
-    ├── inspector.py        # jimm-ci-pr: PR commit table + --apply
-    ├── github_app.py       # JWT + installation token + Checks/Compare/Pulls/Labels
+    ├── runner.py           # jimm-ci-run: discover + prompt + build loop
+    ├── skip.py             # jimm-ci-skip: post `skipped` Check Runs
+    ├── github_app.py       # JWT + installation token + Checks/Compare/Pulls
     ├── path_filter.py      # changed paths → test families
     └── config.py           # env-var-driven configuration
 ```
@@ -66,20 +71,30 @@ ci/
 
 On every invocation, `jimm-ci-run`:
 
-1. Lists open PRs, drops fork PRs, drops PRs without a
-   `ci-approved-<head_sha[:7]>` label.
-2. For each remaining PR, calls Compare to map changed paths → test
-   families, then queries the Checks API for the head commit and keeps
-   only families with no completed `jimm-ci / <family>` Check Run yet.
-   PR-scope jobs use `REPRESENTATIVE_VARIANT` per family.
-3. Lists master commits in the last 30 days; for each commit missing
-   any of the four `jimm-ci` Check Runs, queues a full-sweep job.
-4. Processes the resulting job list serially. For each family in a job:
-   posts an `in_progress` Check Run, runs
+1. Lists open PRs (drops fork PRs). For each, calls Compare to map
+   changed paths → test families, then queries the Checks API for the
+   head commit and keeps only families with no completed
+   `jimm-ci / <family>` Check Run yet. PR-scope jobs use
+   `REPRESENTATIVE_VARIANT` per family.
+2. Lists master commits in the last 30 days; for each commit missing
+   any `jimm-ci` Check Run, queues a full-sweep job.
+3. **Prompts y/n on every PR job.** `n` posts `skipped` Check Runs on
+   that SHA's missing families and drops the job. `y` keeps it.
+4. Processes the surviving job list serially, PR jobs first. For each
+   family in a job:
+   posts an `in_progress` Check Run, dumps the family's timm parity
+   fixture(s) into a persistent `<state>/parity/` directory (symlinked
+   into the worktree's `data/parity/`) via `uv run python
+   test/parity/dump_<family>_io.py …` if the fixture is missing, runs
    `julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'`
    inside a detached `git worktree` with
    `JIMM_TEST_FAMILIES` / `JIMM_TEST_VARIANTS` set, then completes the
    Check Run with the tail of the build log (capped at ~60 KB).
+
+The parity fixtures themselves and the Python venv that produces them
+both live under `<state>/` (`parity/` and `python-env/`), so the
+first run for a given variant pays the dump cost (a few minutes) and
+every subsequent run is a cache hit.
 
 `--dry-run` prints the discovered jobs and exits without invoking Julia.
 
@@ -98,7 +113,8 @@ not env strings.
 | `JIMM_CI_STATE_DIR` | no | `/var/lib/jimm-ci` | Mirror, worktrees, logs, depot |
 | `JIMM_CI_HF_TOKEN_FILE` | no | — | HuggingFace token for parity weights |
 | `JIMM_CI_JULIA` | no | `/usr/local/bin/julia` | Julia binary path |
-| `JIMM_CI_APPROVAL_LABEL_PREFIX` | no | `ci-approved-` | Prefix the runner looks for on PR labels |
+| `JIMM_CI_PARITY_DIR` | no | `<state>/parity` | Where dumped HDF5 fixtures persist across worktrees |
+| `UV_PROJECT_ENVIRONMENT` | no | `<state>/python-env` | Persistent venv for the Python parity sidecars (PyTorch + timm) |
 | `JULIA_NUM_THREADS` | no | `4` | Forwarded to test jobs |
 
 ## Setup on Debian 13
@@ -140,11 +156,16 @@ sudo -u ci git clone https://github.com/<OWNER>/Jimm.jl.git /opt/jimm-ci/Jimm.jl
 install -d -o ci -g ci \
     /var/lib/jimm-ci \
     /var/lib/jimm-ci/julia-depot \
-    /var/lib/jimm-ci/hf-cache
+    /var/lib/jimm-ci/hf-cache \
+    /var/lib/jimm-ci/parity \
+    /var/lib/jimm-ci/python-env
 ```
 
 The runner creates `mirror.git`, `work/`, and `logs/` under
-`/var/lib/jimm-ci/` on first invocation.
+`/var/lib/jimm-ci/` on first invocation. The parity sidecars need a
+Python environment with PyTorch + timm — `uv` provisions it lazily into
+`/var/lib/jimm-ci/python-env/` on the first dump (expect ~2 GB and a
+few minutes the first time), and reuses it on every subsequent run.
 
 ### 5. Register the GitHub App
 
@@ -157,11 +178,8 @@ GitHub App):
 * **Permissions (repository):**
   * Checks: **Read & write**
   * Contents: **Read-only**
-  * Issues: **Read & write** (only required if you want
-    `jimm-ci-pr --apply` to create and apply labels)
   * Metadata: **Read-only**
-  * Pull requests: **Read & write** if you want `--apply` to work,
-    otherwise **Read-only**
+  * Pull requests: **Read-only**
 * **Subscribe to events:** none.
 * **Where can this app be installed:** Only on this account.
 
@@ -204,6 +222,7 @@ export JIMM_CI_HF_TOKEN_FILE=/etc/jimm-ci/hf-token
 export JIMM_CI_REPO_OWNER=<owner>
 export JIMM_CI_REPO_NAME=Jimm.jl
 export JIMM_CI_JULIA=/usr/local/bin/julia
+export UV_PROJECT_ENVIRONMENT=/var/lib/jimm-ci/python-env
 export JULIA_NUM_THREADS=4
 SH
 ```
@@ -231,22 +250,6 @@ Drains every discovered job serially. Re-running immediately is a no-op:
 the Check Runs created on the first invocation make the runner consider
 each commit as already tested.
 
-### Approve a PR for CI
-
-```bash
-ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-pr <pr-url>'
-```
-
-Prints a table of commits, the label string that approves each, and
-marks the current head. Add `--apply` to create the label (if it does
-not exist in the repo yet) and attach it to the PR:
-
-```bash
-ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-pr <pr-url> --apply'
-```
-
-Once a PR head is labeled, the next `jimm-ci-run` picks it up.
-
 ### Skip pending commits without testing them
 
 ```bash
@@ -254,9 +257,11 @@ ssh ci@<vm> 'cd /opt/jimm-ci/Jimm.jl/ci && uv run jimm-ci-skip --all-pending'
 ```
 
 Posts a `skipped` Check Run for every family on every currently-pending
-commit so the runner stops reconsidering them. Pass explicit SHAs to
-skip a specific subset (`jimm-ci-skip <sha> [<sha> ...]`), or add
-`--dry-run` to preview which commits would be marked.
+**master** commit so the runner stops reconsidering them. PRs are never
+auto-skipped here — cancel a PR by answering `n` at the `jimm-ci-run`
+prompt instead. To skip a specific commit (PR head or otherwise)
+anyway, pass the SHA explicitly: `jimm-ci-skip <sha> [<sha> ...]`.
+`--dry-run` previews which commits would be marked.
 
 ## Operations
 
@@ -291,8 +296,8 @@ all already `completed`. To force a re-test:
 
 1. Generate a new key in the GitHub App settings; download the `.pem`.
 2. Replace `/etc/jimm-ci/app.pem` (keep `0640 root:ci`).
-3. Revoke the old key in the GitHub UI once a `jimm-ci-pr --dry-run` is
-   confirmed to still authenticate.
+3. Revoke the old key in the GitHub UI once a `jimm-ci-run --dry-run`
+   is confirmed to still authenticate.
 
 ### Adding a new test family
 

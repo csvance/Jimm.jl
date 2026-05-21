@@ -50,10 +50,14 @@ async def _skip_async(args: argparse.Namespace) -> int:
 
         if args.all_pending:
             jobs = await discover_jobs(cfg, gh)
-            if not jobs:
-                print("nothing to skip")
+            # --all-pending only targets master commits. PRs require an
+            # explicit SHA because skipping an approved PR is almost always
+            # a mistake — answer `n` at the `jimm-ci-run` prompt instead.
+            master_jobs = [j for j in jobs if j.pr_number is None]
+            if not master_jobs:
+                print("nothing to skip (no pending master commits)")
                 return 0
-            for job in jobs:
+            for job in master_jobs:
                 targets.append((job.head_sha, job.families))
 
         for sha in args.shas:
@@ -96,7 +100,10 @@ def cli_main() -> None:
     )
     parser.add_argument(
         "--all-pending", action="store_true",
-        help="run discovery and mark every currently-candidate job as skipped",
+        help=(
+            "run discovery and mark every currently-pending master commit "
+            "as skipped (PRs are never auto-skipped; pass a SHA explicitly)"
+        ),
     )
     parser.add_argument(
         "--dry-run", action="store_true",

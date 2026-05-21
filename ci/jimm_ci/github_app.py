@@ -199,30 +199,3 @@ class GitHubApp:
             if page > 20:
                 return out
 
-    async def list_pull_commits(self, repo: str, number: int) -> list[dict[str, Any]]:
-        """List commits associated with PR `number`, oldest first."""
-        return await self._paginated(f"/repos/{repo}/pulls/{number}/commits")
-
-    async def ensure_label(self, repo: str, name: str,
-                            *, color: str = "0e8a16",
-                            description: str | None = None) -> None:
-        """Create label `name` on the repo if it does not already exist."""
-        try:
-            await self._request("GET", f"/repos/{repo}/labels/{name}")
-            return
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code != 404:
-                raise
-        body: dict[str, Any] = {"name": name, "color": color}
-        if description is not None:
-            body["description"] = description
-        await self._request("POST", f"/repos/{repo}/labels", json=body)
-
-    async def add_labels_to_issue(self, repo: str, number: int,
-                                   labels: list[str]) -> None:
-        """Add `labels` to issue/PR `number` (additive; does not remove)."""
-        await self._request(
-            "POST",
-            f"/repos/{repo}/issues/{number}/labels",
-            json={"labels": labels},
-        )

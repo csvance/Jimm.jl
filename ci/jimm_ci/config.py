@@ -20,11 +20,11 @@ class Config:
     mirror_dir: Path
     workspace_dir: Path
     log_dir: Path
+    parity_dir: Path
+    python_env: Path
 
     julia_binary: Path
     hf_token: str | None
-
-    approval_label_prefix: str
 
     @property
     def repo_fullname(self) -> str:
@@ -52,9 +52,8 @@ class Config:
             mirror_dir=state / "mirror.git",
             workspace_dir=state / "work",
             log_dir=state / "logs",
+            parity_dir=Path(os.environ.get("JIMM_CI_PARITY_DIR", state / "parity")),
+            python_env=Path(os.environ.get("UV_PROJECT_ENVIRONMENT", state / "python-env")),
             julia_binary=Path(os.environ.get("JIMM_CI_JULIA", "/usr/local/bin/julia")),
             hf_token=hf_token,
-            approval_label_prefix=os.environ.get(
-                "JIMM_CI_APPROVAL_LABEL_PREFIX", "ci-approved-",
-            ),
         )

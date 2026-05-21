@@ -14,8 +14,9 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from .config import Config
@@ -27,6 +28,15 @@ MAX_OUTPUT_TEXT = 60_000  # GitHub Checks API limit is 65535; leave headroom.
 MASTER_LOOKBACK_DAYS = 30
 CHECK_NAME_PREFIX = "jimm-ci / "
 
+# Maps test family → Python sidecar that dumps its parity fixtures.
+# Mirrors the family resolution in scripts/test_variant.sh.
+_FAMILY_SIDECAR: dict[str, str] = {
+    "bit":        "test/parity/dump_resnetv2_bit_io.py",
+    "resnet":     "test/parity/dump_resnet_io.py",
+    "convnext":   "test/parity/dump_convnext_io.py",
+    "convnextv2": "test/parity/dump_convnextv2_io.py",
+}
+
 
 @dataclass
 class Job:
@@ -36,6 +46,7 @@ class Job:
     full_sweep: bool
     label: str
     pr_number: int | None = None
+    pr_title: str | None = None
     check_runs: dict[str, int] = field(default_factory=dict)
 
 
@@ -107,7 +118,26 @@ class Builder:
             ["git", "-C", str(self.cfg.mirror_dir), "worktree", "add", "--detach", str(wt), sha],
             cwd=self.cfg.mirror_dir, log_path=self.cfg.log_dir / sha / "worktree.log",
         )
+        self._link_parity_dir(wt)
         return wt
+
+    def _link_parity_dir(self, wt: Path) -> None:
+        """Point the worktree's `data/parity/` at the persistent fixtures dir.
+
+        Parity fixtures are gitignored, so a fresh worktree starts with no
+        `data/parity/` content. Symlinking the whole directory means dumps
+        written here persist across worktrees and check-runs.
+        """
+        self.cfg.parity_dir.mkdir(parents=True, exist_ok=True)
+        data = wt / "data"
+        data.mkdir(parents=True, exist_ok=True)
+        link = data / "parity"
+        if link.is_symlink() or link.exists():
+            if link.is_dir() and not link.is_symlink():
+                shutil.rmtree(link)
+            else:
+                link.unlink()
+        link.symlink_to(self.cfg.parity_dir)
 
     async def _drop_worktree(self, wt: Path) -> None:
         try:
@@ -133,6 +163,53 @@ class Builder:
             env["HF_TOKEN"] = self.cfg.hf_token
             env["HUGGING_FACE_HUB_TOKEN"] = self.cfg.hf_token
         return env
+
+    def _env_for_sidecar(self) -> dict[str, str]:
+        """Shared persistent venv + HF cache for every Python dump invocation."""
+        env = {
+            **os.environ,
+            "UV_PROJECT_ENVIRONMENT": str(self.cfg.python_env),
+            "HF_HUB_CACHE": str(self.cfg.hf_cache),
+        }
+        if self.cfg.hf_token:
+            env["HF_TOKEN"] = self.cfg.hf_token
+            env["HUGGING_FACE_HUB_TOKEN"] = self.cfg.hf_token
+        return env
+
+    async def _ensure_fixtures(
+        self, job: Job, wt: Path, family: str, variant: str,
+    ) -> None:
+        """Run the family's Python sidecar to dump any missing fixtures.
+
+        PR-scope (`variant != ""`): dump only that variant if its `.h5` is
+        absent. Full sweep (`variant == ""`): pass `--all` to dump every
+        variant the sidecar knows about, which the sidecar itself
+        skips/overwrites as appropriate. `infra` has no sidecar.
+        """
+        sidecar = _FAMILY_SIDECAR.get(family)
+        if not sidecar:
+            return
+
+        if variant:
+            fixture = self.cfg.parity_dir / f"{variant}_io.h5"
+            if fixture.exists():
+                LOG.info("fixture %s already present", fixture.name)
+                return
+            args = ["--variant", variant]
+        else:
+            args = ["--all"]
+
+        log_path = self.cfg.log_dir / job.head_sha / f"{family}-dump.log"
+        cmd = ["uv", "run", "--project", str(wt),
+               "python", sidecar, *args]
+        env = self._env_for_sidecar()
+        LOG.info("dumping parity fixtures: %s", " ".join(cmd))
+        rc = await _run_subprocess(cmd, env=env, log_path=log_path, cwd=wt)
+        if rc != 0:
+            raise RuntimeError(
+                f"parity dump for {family}/{variant or 'all'} failed (rc={rc}); "
+                f"see {log_path}"
+            )
 
     async def run(self, job: Job) -> None:
         LOG.info("starting job %s sha=%s families=%s sweep=%s",
@@ -165,6 +242,7 @@ class Builder:
 
         rc = 1
         try:
+            await self._ensure_fixtures(job, wt, family, variant)
             rc = await _run_subprocess(cmd, env=env, log_path=log_path, cwd=wt)
         except asyncio.CancelledError:
             await self.app.complete_check_run(
@@ -219,7 +297,7 @@ async def discover_jobs(cfg: Config, gh: GitHubApp) -> list[Job]:
     """Find every untested commit eligible to run on this invocation."""
     jobs: list[Job] = []
 
-    # ── Open PRs with a per-SHA approval label ──────────────────────────
+    # ── Open PRs (interactive y/n prompt happens in cli_main) ───────────
     pulls = await gh.list_open_pulls(cfg.repo_fullname)
     for pr in pulls:
         number = pr.get("number")
@@ -234,13 +312,6 @@ async def discover_jobs(cfg: Config, gh: GitHubApp) -> list[Job]:
         base_repo = (base.get("repo") or {}).get("full_name")
         if head_repo and base_repo and head_repo != base_repo:
             LOG.info("PR #%s skipped: fork (%s)", number, head_repo)
-            continue
-
-        expected_label = f"{cfg.approval_label_prefix}{head_sha[:7]}"
-        labels = {lbl.get("name", "") for lbl in (pr.get("labels") or [])}
-        if expected_label not in labels:
-            LOG.info("PR #%s skipped: no `%s` label (head=%s)",
-                     number, expected_label, head_sha[:8])
             continue
 
         try:
@@ -261,6 +332,7 @@ async def discover_jobs(cfg: Config, gh: GitHubApp) -> list[Job]:
         jobs.append(Job(
             head_sha=head_sha, base_sha=base_sha, families=todo,
             full_sweep=False, pr_number=number,
+            pr_title=pr.get("title") or "",
             label=f"pr-{number}@{head_sha[:8]}",
         ))
 
@@ -311,6 +383,74 @@ def _print_jobs(jobs: list[Job]) -> None:
               + (f" pr=#{j.pr_number}" if j.pr_number else ""))
 
 
+async def _ask_yes_no(prompt: str) -> bool:
+    """Synchronous-input y/n prompt that doesn't block the event loop."""
+    loop = asyncio.get_running_loop()
+    while True:
+        answer = (await loop.run_in_executor(None, input, prompt)).strip().lower()
+        if answer in ("y", "yes"):
+            return True
+        if answer in ("n", "no", ""):
+            return False
+        print("  please answer y or n", flush=True)
+
+
+async def _post_skipped(
+    gh: GitHubApp, repo: str, sha: str, families: tuple[str, ...],
+) -> None:
+    today = date.today().isoformat()
+    output = {
+        "title": "Skipped",
+        "summary": (
+            f"Cancelled by `jimm-ci-run` prompt on {today}. "
+            "Push a new commit on the PR to re-prompt."
+        ),
+    }
+    for family in families:
+        await gh.create_check_run(
+            repo, sha, check_name(family, ""),
+            status="completed", conclusion="skipped", output=output,
+        )
+
+
+async def _confirm_pr_jobs(
+    gh: GitHubApp, cfg: Config, jobs: list[Job],
+) -> list[Job]:
+    """Prompt y/n on each PR job. `n` posts skipped check runs and drops the job."""
+    if not sys.stdin.isatty():
+        raise RuntimeError(
+            "jimm-ci-run needs a TTY to prompt for PR confirmation; "
+            "run it from an interactive shell."
+        )
+    kept: list[Job] = []
+    pr_jobs = [j for j in jobs if j.pr_number is not None]
+    other_jobs = [j for j in jobs if j.pr_number is None]
+    if not pr_jobs:
+        return jobs
+    print(f"\n{len(pr_jobs)} pull request(s) waiting on confirmation:\n",
+          flush=True)
+    for job in pr_jobs:
+        title = job.pr_title or "(no title)"
+        print(f"  PR #{job.pr_number}: {title}")
+        print(f"    head:     {job.head_sha[:12]}")
+        print(f"    families: {','.join(job.families)}")
+        prompt = "    run? [y/N]: "
+        if await _ask_yes_no(prompt):
+            kept.append(job)
+            print("    → queued", flush=True)
+        else:
+            print("    → cancelled (posting skipped check runs)", flush=True)
+            try:
+                await _post_skipped(
+                    gh, cfg.repo_fullname, job.head_sha, job.families,
+                )
+            except Exception:
+                LOG.exception("PR #%s: posting skipped check runs failed",
+                              job.pr_number)
+        print(flush=True)
+    return kept + other_jobs
+
+
 async def _run_async(args: argparse.Namespace) -> int:
     cfg = Config.from_env()
     gh = GitHubApp(cfg.app_id, cfg.installation_id, cfg.private_key)
@@ -321,6 +461,10 @@ async def _run_async(args: argparse.Namespace) -> int:
             return 0
         if not jobs:
             print("no jobs to run")
+            return 0
+        jobs = await _confirm_pr_jobs(gh, cfg, jobs)
+        if not jobs:
+            print("no jobs left after confirmation")
             return 0
         builder = Builder(cfg, gh)
         for job in jobs:
