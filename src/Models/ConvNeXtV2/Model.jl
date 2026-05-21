@@ -27,6 +27,21 @@
 
 include("Config.jl")
 
+# -- Weight transforms -------------------------------------------------------
+
+# Some ConvNeXtV2 FCMAE checkpoints on HuggingFace store the MLP fc1/fc2
+# weights as 2D Linear tensors (out, in) rather than 4D Conv2d tensors
+# (out, in, 1, 1). After load_safetensors_state_dict's axis reversal the 4D
+# case lands as (1, 1, in, out) — exactly what Lux Conv expects — while the
+# 2D case lands as (in, out) and must be reshaped. The atto FCMAE checkpoint
+# has 4D weights; the huge FCMAE checkpoint has 2D weights. This transform
+# handles both so a single mapping entry covers all variants.
+function _cn2_fc_weight(w::AbstractArray)
+    ndims(w) == 4 && return w          # (1, 1, in, out) — already correct
+    ndims(w) == 2 || error("convnextv2 fc weight: expected 2D or 4D, got $(ndims(w))D")
+    return reshape(w, 1, 1, size(w, 1), size(w, 2))
+end
+
 # -- Custom layers --------------------------------------------------------
 
 function convnextv2_block(C::Int; mlp_ratio::Int = 4, kernel::Int = 7)
@@ -202,7 +217,7 @@ function convnextv2_mapping(state_dict::Dict, variant::Symbol;
                             as_channel4d))
             push!(mapping, ("$(py_block).mlp.fc1.weight",
                             (prefix..., block_path..., :fc1, :weight),
-                            identity))
+                            _cn2_fc_weight))
             push!(mapping, ("$(py_block).mlp.fc1.bias",
                             (prefix..., block_path..., :fc1, :bias),
                             identity))
@@ -214,7 +229,7 @@ function convnextv2_mapping(state_dict::Dict, variant::Symbol;
                             identity))
             push!(mapping, ("$(py_block).mlp.fc2.weight",
                             (prefix..., block_path..., :fc2, :weight),
-                            identity))
+                            _cn2_fc_weight))
             push!(mapping, ("$(py_block).mlp.fc2.bias",
                             (prefix..., block_path..., :fc2, :bias),
                             identity))
