@@ -4,6 +4,22 @@
     ResNetVariant
 
 Architectural config for a classic timm ResNet variant.
+
+Fields:
+- `name`: lookup key (e.g. `:resnet50_a1_in1k`).
+- `block`: residual block type, either `:basic` (used by r18/r34) or
+  `:bottleneck` (used by r50/r101/r152).
+- `layers`: per-stage block count `(d1, d2, d3, d4)`.
+- `planes`: base channel widths per stage `(64, 128, 256, 512)`.
+  Multiplied by 4 inside `:bottleneck` stages to give the actual
+  output channel count.
+- `num_features`: backbone output channels (`planes[end]` for `:basic`,
+  `planes[end] * 4` for `:bottleneck`).
+- `hf_repo`: HuggingFace repo containing `model.safetensors`.
+- `default_num_classes`: head dimension the released weights ship with.
+- `default_input_size`: native training resolution (224 for every
+  registered variant). Informational only: the model is fully
+  convolutional and accepts any size.
 """
 struct ResNetVariant
     name::Symbol

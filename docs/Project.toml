@@ -1,0 +1,10 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Jimm = "dd5ee4bc-caca-4b0e-b38f-82888d7e6786"
+Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
+NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[compat]
+Documenter = "1"
+julia = "1.12"
