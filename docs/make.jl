@@ -13,6 +13,7 @@ makedocs(;
         canonical = "https://csvance.github.io/Jimm.jl",
         edit_link = "master",
         assets = String[],
+        sidebar_sitename = false,
     ),
     pages = [
         "Home" => "index.md",

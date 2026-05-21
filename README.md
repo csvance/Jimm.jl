@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="300px" src="data/jimm-jl-logo.svg"/>
+    <img width="300px" src="docs/src/assets/logo.svg"/>
 </p>
 <div align="center">
 
