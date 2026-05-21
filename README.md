@@ -61,8 +61,8 @@ deliberately taken from `timm` so pretrained weights load directly.
 ## Acknowledgements
 
 Thanks to Ross Wightman for `timm`, to the Julia ML ecosystem
-maintainers whose work makes a port like this plausible, and to my
-employer [Medical Metrics Inc.][medicalmetrics].
+maintainers whose work makes a port like this plausible, and to
+[Medical Metrics Inc.][medicalmetrics] for allowing me to work on and open-source the project.
 
 [timm]: https://github.com/huggingface/pytorch-image-models
 
