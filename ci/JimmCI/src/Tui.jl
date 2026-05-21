@@ -2,7 +2,8 @@ module Tui
 
 using Dates
 using Tachikoma
-import Tachikoma: view, update!, should_quit, task_queue, set_wake!, has_pending_output
+import Tachikoma: view, update!, should_quit, task_queue, set_wake!,
+                  has_pending_output, init!, cleanup!
 
 using ..ConfigMod
 using ..GitHubAppMod
@@ -63,6 +64,21 @@ task_queue(m::TuiModel)         = m.tq
 set_wake!(m::TuiModel, f::Function) = (m._wake = f; nothing)
 has_pending_output(m::TuiModel) = isready(m.log_channel)
 
+# Spawn the initial discovery from `init!` rather than blocking before
+# `app(model)` runs — the user sees the spinner instead of a frozen
+# terminal while the GitHub API call is in flight.
+init!(m::TuiModel, _t) = (_spawn_refresh!(m); nothing)
+
+# Signal cancellation for any running job when the app exits — so
+# pressing `q` (or Ctrl+C) during a build still tears down the
+# subprocess group instead of orphaning it.
+function cleanup!(m::TuiModel)
+    rj = m.running
+    rj === nothing && return
+    BuilderMod.request_cancel!(rj.cancel)
+    return
+end
+
 # ── Helpers ──────────────────────────────────────────────────────────
 
 function _short(sha::AbstractString, n::Int = 8)
@@ -87,8 +103,20 @@ function _push_log!(m::TuiModel, line::AbstractString)
     m._wake !== nothing && m._wake()
 end
 
+# Matches the Builder's per-family marker:
+#   "==> [check-run] jimm-ci / <family> ... → in_progress (...)"
+# so the header can show which family of the sweep is currently running.
+const _FAMILY_MARKER_RE = r"^==> \[check-run\] jimm-ci / (\w+).* → in_progress"
+
 function _log_callback(m::TuiModel)
-    return line -> _push_log!(m, line)
+    return function (line)
+        rj = m.running
+        if rj !== nothing
+            mt = match(_FAMILY_MARKER_RE, line)
+            mt === nothing || (rj.current_family = String(mt.captures[1]))
+        end
+        _push_log!(m, line)
+    end
 end
 
 _current_master_index_or_nothing(m::TuiModel) =
@@ -194,6 +222,9 @@ function _on_key_running!(m::TuiModel, evt::KeyEvent)
         c = evt.char
         c == 'c' && (m.mode = VIEW_CONFIRM_CANCEL; return)
         c == 'C' && (_cancel_all!(m); return)
+        # Quitting during a build signals the cancel via `cleanup!`, so
+        # the subprocess group goes down rather than orphaning grandchildren.
+        (c == 'q' || c == 'Q') && (m.quit = true; return)
     elseif evt.key == :escape
         m.mode = VIEW_CONFIRM_CANCEL
         return
@@ -404,7 +435,9 @@ function _render_running!(m::TuiModel, buf, area)
     info_area = rows[1]; pane_area = rows[2]
 
     elapsed = Dates.value(now(UTC) - rj.started_at) ÷ 1000
-    info = "running $(rj.job.label)  elapsed $(elapsed)s  families=$(join(rj.job.families, ","))"
+    current = isempty(rj.current_family) ? "(starting)" : rj.current_family
+    info = "running $(rj.job.label)  elapsed $(elapsed)s  on $(current) " *
+           "[$(length(rj.job.families)) families: $(join(rj.job.families, ","))]"
     set_string!(buf, info_area.x + 1, info_area.y, info,
                 tstyle(:primary, bold = true); max_x = right(info_area))
     queue_n = length(m.queue)
@@ -419,16 +452,15 @@ end
 function _render_cancel_modal!(m::TuiModel, buf, area)
     w = min(60, area.width - 4)
     h = 7
-    x = area.x + (area.width  - w) ÷ 2
-    y = area.y + (area.height - h) ÷ 2
-    # Background fill
-    for cy in y:(y + h - 1), cx in x:(x + w - 1)
+    (w < 10 || h > area.height) && return
+    rect = center(area, w, h)
+    for cy in rect.y:bottom(rect), cx in rect.x:right(rect)
         in_bounds(buf, cx, cy) && set_char!(buf, cx, cy, ' ', tstyle(:text))
     end
-    modal = Block(title = " cancel? ",
-                  border_style = tstyle(:warning, bold = true),
-                  title_style  = tstyle(:warning, bold = true))
-    inner = render(modal, Rect(x, y, w, h), buf)
+    inner = render(Block(title = " cancel? ",
+                         border_style = tstyle(:warning, bold = true),
+                         title_style  = tstyle(:warning, bold = true)),
+                   rect, buf)
     set_string!(buf, inner.x + 2, inner.y + 1,
                 "cancel the running build?",
                 tstyle(:text); max_x = right(inner))
@@ -441,9 +473,9 @@ function _render_status!(m::TuiModel, buf, area)
     hint = if m.mode == VIEW_LIST
         "[↑↓/jk] move  [Enter/y] run  [A] run all master  [s] skip  [r] refresh  [q] quit"
     elseif m.mode == VIEW_RUNNING
-        "[c] cancel  [C] cancel all  [PgUp/PgDn] scroll"
+        "[c] cancel  [C] cancel all  [q] quit (signals cancel)  [PgUp/PgDn] scroll"
     else
-        "[y] yes  [a] cancel queue too  [n] no"
+        "[y] yes  [a] cancel queue too  [n/Esc] keep running"
     end
     render(StatusBar(
         left  = [Span("  $(m.status)  ", tstyle(:text_dim))],
@@ -462,14 +494,11 @@ first frame so the list is populated when the user sees it.
 function run_tui(cfg::Config, gh::GitHubApp)
     builder = Builder(cfg, gh)
     model = TuiModel(cfg = cfg, gh = gh, builder = builder)
-    # Eager initial fetch — better UX than an empty list on first paint.
-    try
-        model.jobs   = discover_jobs(cfg, gh)
-        model.status = "$(length(model.jobs)) job(s) pending"
-    catch e
-        model.status = "initial discovery failed: $(sprint(showerror, e))"
-    end
-    app(model; fps = 30)
+    # Discovery is spawned from `init!` so the spinner shows while the
+    # GitHub API call is in flight instead of a frozen terminal. The
+    # spinner ticks every 3 frames; 15 fps is plenty for a CI dashboard
+    # and halves render cost on a long-idle daemon.
+    app(model; fps = 15)
     return nothing
 end
 
