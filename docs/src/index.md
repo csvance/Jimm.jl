@@ -10,18 +10,6 @@ Julia ports of [`timm`](https://github.com/huggingface/pytorch-image-models)
 directly from HuggingFace Hub in `.safetensors` format. The name is an
 homage to the project we port from.
 
-## Why Jimm exists
-
-Jimm exists because we needed Julia's SciML ecosystem together with
-modern pretrained vision backbones, and Python does not have a peer
-for SciML. The original stack was vision encoders feeding `torchdiffeq`
-in PyTorch, which works but leaves much to be desired. Moving the
-DiffEQ side to Julia meant the vision side had to come too. Jimm
-started as a one-off port of a single backbone for that internal use
-case and snowballed. If your work also sits at the intersection of
-pretrained vision encoders and the rest of the SciML stack, Jimm aims
-to make Julia a more complete option for that workload.
-
 ## What Jimm is
 
 Jimm is a strict Lux.jl port of `timm`: same architectures, same

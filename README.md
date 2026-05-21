@@ -8,55 +8,12 @@ Julia ports of [`timm`](https://github.com/huggingface/pytorch-image-models)
 directly from HuggingFace Hub in `.safetensors` format. The name is an
 homage to the project we port from.
 
-## Motivation
-
-Jimm exists because we needed Julia's SciML ecosystem together with
-modern pretrained vision backbones, and Python does not have a peer
-for SciML. The original stack was vision encoders feeding `torchdiffeq`
-in PyTorch, which works but leaves much to be desired. Moving the
-DiffEQ side to Julia meant the vision side had to come too. Jimm
-started as a one-off port of a single backbone for that internal use
-case and snowballed. If your work also sits at the intersection of
-pretrained vision encoders and the rest of the SciML stack, Jimm aims
-to make Julia a more complete option for that workload.
-
-## Status and caveats
-
-Most of Jimm was written by AI agents driving the porting workflow
-encoded in `.claude/skills/timm-to-lux/`, with human review at each
-phase and the parity tests as the correctness backstop. The code is
-already being used in real projects, so the registered backbones work
-for forward inference with the released weights. That said: **expect
-bugs and rough edges**, especially around anything the parity tests do
-not exercise (custom training loops, mixed-precision paths, exotic
-input shapes). File issues and PRs; we will fix them.
-
-The package is also not at 1:1 parity with the full `timm` catalog and
-is not likely to ever be. `timm` ships hundreds of architectures and
-thousands of pretrained checkpoints; Jimm tracks only the subset its
-contributors actually use. New backbones land via PR; see the
-[porting guide](https://csvance.github.io/Jimm.jl/porting/) in the
-docs.
-
-## What Jimm is
-
 Jimm is a strict Lux.jl port of `timm`: same architectures, same
 hyperparameters, same weight initialization, same `state_dict` key layout.
 The goal is that any HuggingFace `timm/<variant>` checkpoint loads into the
 corresponding Jimm model without manual rewiring, and that the forward pass
 matches `timm` to within float32 round-off. **Compatibility with `timm` is
 the project's #1 priority**; if the two diverge, `timm` is the reference.
-
-## What Jimm is not
-
-Jimm is not a redesign or a Julia-native reimagining of image backbones.
-It does not introduce new naming or "improved" defaults, and the layers it
-ships (`src/Layers/`) are only those `timm` itself provides, ported to
-match. It is not a general computer-vision toolkit: no datasets, no
-training loops, no augmentation pipelines, no detection or segmentation
-heads beyond what `timm` itself exposes on a backbone. Anything that would
-cause a Jimm model to diverge numerically from its `timm` counterpart is
-out of scope.
 
 ## Available backbones
 

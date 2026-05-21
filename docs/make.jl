@@ -32,7 +32,5 @@ makedocs(;
 )
 
 deploydocs(;
-    repo = "github.com/csvance/Jimm.jl",
-    devbranch = "master",
-    push_preview = false,
+    repo = "github.com/csvance/Jimm.jl"
 )
