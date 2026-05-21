@@ -17,12 +17,12 @@ explicit skip CLI).
 function mark_skipped(gh::GitHubApp, repo::AbstractString,
                        sha::AbstractString, families;
                        source::Symbol = :run)
-    today = Dates.format(today(), dateformat"yyyy-mm-dd")
+    today_str = Dates.format(Dates.today(), dateformat"yyyy-mm-dd")
     summary = source === :skip ?
-        "Marked skipped by `jimm-ci --skip-pending` on $today. " *
+        "Marked skipped by `jimm-ci --skip-pending` on $today_str. " *
         "Re-running CI on this commit requires deleting this check or " *
         "pushing a new commit on top." :
-        "Cancelled by `jimm-ci` on $today. " *
+        "Cancelled by `jimm-ci` on $today_str. " *
         "Push a new commit on the PR to re-prompt."
     output = Dict{String,Any}("title" => "Skipped", "summary" => summary)
     for family in families

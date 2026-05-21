@@ -176,9 +176,18 @@ end
 
 function _spawn_skip!(m::TuiModel, job::Job)
     spawn_task!(m.tq, :skip) do
-        mark_skipped(m.gh, repo_fullname(m.cfg), job.head_sha, job.families;
-                     source = :run)
-        return job.head_sha
+        try
+            mark_skipped(m.gh, repo_fullname(m.cfg), job.head_sha, job.families;
+                         source = :run)
+            return job.head_sha
+        catch e
+            bt = catch_backtrace()
+            @error "mark_skipped failed" job=job.label exception=(e, bt)
+            # CapturedException bundles the backtrace so the TaskEvent
+            # handler's `sprint(showerror, …)` renders something useful
+            # instead of just the bare error type.
+            return CapturedException(e, bt)
+        end
     end
     m.status = "skipping $(job.label)…"
     return nothing

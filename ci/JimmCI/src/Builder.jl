@@ -264,46 +264,73 @@ function _ensure_fixtures!(b::Builder, job::Job, wt::AbstractString,
     sidecar === nothing && return
 
     if !isempty(variant)
-        fixture = joinpath(b.cfg.parity_dir, "$(variant)_io.h5")
-        if isfile(fixture)
-            _link_fixture_into_worktree(fixture, wt)
-            return
+        # Every family's test file has both a 3-channel parity testset and
+        # an `in_chans=1` testset (the latter exercises timm's
+        # `adapt_input_conv` stem path). Dump both fixtures or the in1c
+        # testset silently skips with "fixture missing".
+        for ic in (3, 1)
+            _dump_variant_fixture!(b, job, wt, family, sidecar, variant, ic,
+                                   on_line, token)
         end
-        # Pass --out explicitly so the script writes directly to parity_dir
-        # regardless of which version of default_out_path the worktree has.
-        args = ["--variant", variant, "--out", fixture]
-    else
-        args = ["--all"]
+        return
     end
 
+    # ── Full sweep ──
     log_path = joinpath(b.cfg.log_dir, job.head_sha, "$family-dump.log")
-    cmd = Cmd(String["uv", "run", "--project", wt, "python", sidecar, args...])
-    env = _env_for_sidecar(b.cfg)
-    rc = _stream_subprocess(cmd, env, log_path, on_line, token; cwd = wt)
-    rc == 0 || error("parity dump for $family/$(isempty(variant) ? "all" : variant) " *
-                     "failed (rc=$rc); see $log_path")
+    for ic in (3, 1)
+        ic_args = ic == 3 ? String[] : ["--in-chans", "1"]
+        cmd = Cmd(String["uv", "run", "--project", wt, "python", sidecar,
+                         "--all", ic_args...])
+        env = _env_for_sidecar(b.cfg)
+        rc = _stream_subprocess(cmd, env, log_path, on_line, token; cwd = wt)
+        rc == 0 || error("parity dump for $family/all in_chans=$ic " *
+                         "failed (rc=$rc); see $log_path")
+    end
 
-    if isempty(variant)
-        # For --all: the worktree scripts may not know about JIMM_PARITY_DIR,
-        # so they write to <wt>/data/parity/. Promote any new fixtures into
-        # parity_dir, then mirror everything cached there back into the
-        # worktree so test files that hardcode `data/parity/` find them too.
-        wt_parity = joinpath(wt, "data", "parity")
-        if isdir(wt_parity)
-            for f in readdir(wt_parity; join = true)
-                endswith(f, ".h5") || continue
-                dest = joinpath(b.cfg.parity_dir, basename(f))
-                isfile(dest) || cp(f, dest)
-            end
-        end
-        for f in readdir(b.cfg.parity_dir; join = true)
+    # The worktree scripts may not know about JIMM_PARITY_DIR, so they
+    # write to <wt>/data/parity/. Promote any new fixtures into parity_dir,
+    # then mirror everything cached there back into the worktree so test
+    # files that hardcode `data/parity/` find them too.
+    wt_parity = joinpath(wt, "data", "parity")
+    if isdir(wt_parity)
+        for f in readdir(wt_parity; join = true)
             endswith(f, ".h5") || continue
-            _link_fixture_into_worktree(f, wt)
+            dest = joinpath(b.cfg.parity_dir, basename(f))
+            isfile(dest) || cp(f, dest)
         end
-    else
-        _link_fixture_into_worktree(fixture, wt)
+    end
+    for f in readdir(b.cfg.parity_dir; join = true)
+        endswith(f, ".h5") || continue
+        _link_fixture_into_worktree(f, wt)
     end
     return
+end
+
+# Dump a single (variant, in_chans) parity fixture into `cfg.parity_dir`
+# if it isn't already cached, then symlink it into the worktree. The 3-ch
+# fixture is named `<variant>_io.h5`; non-default channel counts get the
+# `_in<N>c` suffix that the test files expect.
+function _dump_variant_fixture!(b::Builder, job::Job, wt::AbstractString,
+                                 family::AbstractString,
+                                 sidecar::AbstractString,
+                                 variant::AbstractString, in_chans::Int,
+                                 on_line::Function, token::BuildCancel)
+    suffix = in_chans == 3 ? "" : "_in$(in_chans)c"
+    fixture = joinpath(b.cfg.parity_dir, "$(variant)$(suffix)_io.h5")
+    if !isfile(fixture)
+        args = ["--variant", variant,
+                "--in-chans", string(in_chans),
+                "--out", fixture]
+        log_path = joinpath(b.cfg.log_dir, job.head_sha,
+                            "$(family)$(suffix)-dump.log")
+        cmd = Cmd(String["uv", "run", "--project", wt, "python",
+                         sidecar, args...])
+        env = _env_for_sidecar(b.cfg)
+        rc = _stream_subprocess(cmd, env, log_path, on_line, token; cwd = wt)
+        rc == 0 || error("parity dump for $family/$variant in_chans=$in_chans " *
+                         "failed (rc=$rc); see $log_path")
+    end
+    _link_fixture_into_worktree(fixture, wt)
 end
 
 # Symlink a cached fixture from `cfg.parity_dir` into the worktree's
