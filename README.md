@@ -8,13 +8,6 @@ Julia ports of [`timm`](https://github.com/huggingface/pytorch-image-models)
 directly from HuggingFace Hub in `.safetensors` format. The name is an
 homage to the project we port from.
 
-Jimm is a strict Lux.jl port of `timm`: same architectures, same
-hyperparameters, same weight initialization, same `state_dict` key layout.
-The goal is that any HuggingFace `timm/<variant>` checkpoint loads into the
-corresponding Jimm model without manual rewiring, and that the forward pass
-matches `timm` to within float32 round-off. **Compatibility with `timm` is
-the project's #1 priority**; if the two diverge, `timm` is the reference.
-
 ## Available backbones
 
 | family            | constructor    | num weights | weight license     |
@@ -24,24 +17,6 @@ the project's #1 priority**; if the two diverge, `timm` is the reference.
 | ConvNeXt          | `convnext`     | 19          | Apache 2.0         |
 | ConvNeXt (DINOv3) | `convnext`     | 4           | DINOv3 License     |
 | ConvNeXt V2       | `convnextv2`   | 26          | CC BY-NC 4.0       |
-
-The weight licenses above are set by the upstream releases (Google for
-BiT, Facebook AI for the original ConvNeXt `.fb_*` checkpoints, Meta for
-the ConvNeXt DINOv3 encoders and ConvNeXtV2) and are separate from
-Jimm.jl's own Apache 2.0 code license. The plain `ConvNeXt` row holds
-the 19 Facebook AI checkpoints from the original 2022 ConvNeXt paper
-(T/S/B/L/XL crossed with IN1K, IN22K, and IN22K-finetuned-IN1K, at 224
-and 384 resolutions), all Apache 2.0. **ConvNeXtV2 weights are CC BY-NC
-4.0, which forbids commercial use**; the **ConvNeXt DINOv3 weights carry
-Meta's DINOv3 License**, which imposes obligations on derived outputs
-(read the
-[license text](https://ai.meta.com/resources/models-and-libraries/dinov3-license/)
-before deploying). Pick BiT or ConvNeXt (`.fb_*`) when commercial
-deployment matters.
-
-Variant keys are the `timm` model name with the dot rewritten as an
-underscore (so the key remains a single Julia identifier). The full `timm`
-name with the dot lives at `<FAMILY>_VARIANTS[key].hf_repo`.
 
 ## Basic usage
 
