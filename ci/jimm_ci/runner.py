@@ -91,15 +91,15 @@ class Builder:
 
     async def _ensure_mirror(self) -> None:
         mirror = self.cfg.mirror_dir
-        # A valid bare mirror always has a HEAD file. If the dir exists but
-        # HEAD is missing, something stamped an empty directory here (e.g.
-        # `install -d`); wipe it and clone fresh rather than running fetch
-        # against a non-repo.
-        is_bare_repo = mirror.exists() and (mirror / "HEAD").exists()
-        if not is_bare_repo:
-            if mirror.exists():
-                LOG.warning("mirror dir %s is not a bare repo; recloning", mirror)
-                shutil.rmtree(mirror)
+        # Ask git itself whether this is a bare repo. Cheaper and stricter
+        # than checking individual files (HEAD/objects/refs etc.), and
+        # catches partial / corrupted clones that a file-existence check
+        # would let through.
+        if mirror.exists() and not await self._is_bare_repo(mirror):
+            LOG.warning("mirror dir %s is not a usable bare repo; recloning",
+                        mirror)
+            shutil.rmtree(mirror)
+        if not mirror.exists():
             mirror.parent.mkdir(parents=True, exist_ok=True)
             await self._git(
                 ["git", "clone", "--mirror", f"https://github.com/{self.cfg.repo_fullname}.git", str(mirror)],
@@ -111,9 +111,18 @@ class Builder:
                 cwd=mirror, log_path=self.cfg.log_dir / "mirror-fetch.log",
             )
 
+    async def _is_bare_repo(self, path: Path) -> bool:
+        env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+        proc = await asyncio.create_subprocess_exec(
+            "git", "-C", str(path), "rev-parse", "--is-bare-repository",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+        )
+        stdout, _ = await proc.communicate()
+        return proc.returncode == 0 and stdout.decode().strip() == "true"
+
     async def _git(self, cmd: list[str], *, cwd: Path, log_path: Path) -> None:
         env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-        rc = await _run_subprocess(cmd, env=env, log_path=log_path)
+        rc = await _run_subprocess(cmd, env=env, log_path=log_path, cwd=cwd)
         if rc != 0:
             raise RuntimeError(f"git failed: {' '.join(cmd)} (cwd={cwd}, rc={rc})")
 
