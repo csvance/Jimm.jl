@@ -1,5 +1,5 @@
-# Statistical sanity checks that `Lux.setup` on `bit_resnetv2`, `resnet`, and
-# `convnextv2` produces weight distributions matching timm's
+# Statistical sanity checks that `Lux.setup` on `create_model` for BiT,
+# ResNet, and ConvNeXtV2 variants produces weight distributions matching timm's
 # `_init_weights` recipes. We can't match PyTorch's RNG bit-for-bit, so
 # tolerances are generous; the goal is to catch a regression to
 # `glorot_uniform` or to an unintentionally non-zero bias init.
@@ -20,7 +20,7 @@ end
 
 @testset "timm random-init recipes" begin
     @testset "BiT ResNetV2 r50x1" begin
-        model = bit_resnetv2(:resnetv2_50x1_bit_goog_in21k;
+        model = create_model(:resnetv2_50x1_bit_goog_in21k;
                               in_chans = 3, num_classes = 21843)
         ps, _ = Lux.setup(Xoshiro(0), model)
 
@@ -47,7 +47,7 @@ end
     end
 
     @testset "ResNet18" begin
-        model = resnet(:resnet18_a1_in1k; in_chans = 3, num_classes = 1000)
+        model = create_model(:resnet18_a1_in1k; in_chans = 3, num_classes = 1000)
         ps, _ = Lux.setup(Xoshiro(0), model)
 
         # Stem: 7x7, in=3, out=64. Kaiming fan_out -> std = sqrt(2/(64*49)).
@@ -69,7 +69,7 @@ end
     end
 
     @testset "ResNet50" begin
-        model = resnet(:resnet50_a1_in1k; in_chans = 3, num_classes = 1000)
+        model = create_model(:resnet50_a1_in1k; in_chans = 3, num_classes = 1000)
         ps, _ = Lux.setup(Xoshiro(0), model)
 
         @test size(ps.layer1.layer_1.conv1.weight) == (1, 1, 64, 64)
@@ -87,7 +87,7 @@ end
     end
 
     @testset "ConvNeXtV2 atto (ft_in1k)" begin
-        model = convnextv2(:convnextv2_atto_fcmae_ft_in1k;
+        model = create_model(:convnextv2_atto_fcmae_ft_in1k;
                             in_chans = 3, num_classes = 1000)
         ps, _ = Lux.setup(Xoshiro(0), model)
 
