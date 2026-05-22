@@ -267,48 +267,38 @@ function bit_resnetv2_mapping(state_dict::Dict, variant::Symbol;
 end
 
 """
-    load_bit_resnetv2_pretrained(ps, st, variant; revision="main",
-                                  cache_dir=hf_hub_cache_dir(),
-                                  prefix=()) -> (ps, st)
+    _load_bit_resnetv2(ps, st, variant; in_chans, num_classes,
+                       revision, cache_dir, prefix) -> (ps, st)
 
-Resolve `model.safetensors` for `variant` on HuggingFace (cached on
+Private back-end for `create_pretrained` on BiT ResNetV2 variants.
+Resolves `model.safetensors` for `variant` on HuggingFace (cached on
 disk under the standard HF Hub layout, so the same blob is shared
-with any `timm` / `huggingface_hub` install on the machine), load it
-via `load_safetensors_state_dict`, and rebuild `ps` with the BiT
+with any `timm` / `huggingface_hub` install on the machine), loads it
+via `load_safetensors_state_dict`, and rebuilds `ps` with the BiT
 weights applied at `ps.<prefix...>`. `st` is returned unchanged
 (GroupNorm has no running statistics); the uniform `(ps, st)` shape
 mirrors the other family loaders.
 
-`in_chans` and `num_classes` are inferred from `ps`. Three cases:
+`in_chans` and `num_classes` are forwarded from the closure captured
+at `create_pretrained` time. Three classifier-head cases:
 
-- No `head_fc` slot (model built with `num_classes = 0`): backbone-only
-  load, returns a feature extractor.
-- `head_fc` matches the variant's `default_num_classes`: full load,
-  including classifier.
-- `head_fc` exists but its class count differs from `default_num_classes`:
-  the backbone is loaded and a `@warn` is emitted; the user's custom
-  classifier is left at its `Lux.setup` random initialization for them
-  to train.
-
-`revision` selects a branch / tag / commit on the HF repo; defaults
-to `"main"`. `cache_dir` defaults to the same root `huggingface_hub`
-uses (`HF_HUB_CACHE` → `\$HF_HOME/hub` → `~/.cache/huggingface/hub`).
+- `num_classes == 0`: backbone-only load, feature extractor.
+- `num_classes == default_num_classes(variant)`: full load including
+  classifier.
+- `num_classes` differs from the variant's default: the backbone is
+  loaded and a `@warn` is emitted; the user's custom classifier is
+  left at its `Lux.setup` random initialization for them to train.
 """
-function load_bit_resnetv2_pretrained(ps, st, variant::Symbol;
-        revision::AbstractString = "main",
-        cache_dir::AbstractString = hf_hub_cache_dir(),
-        prefix::Tuple{Vararg{Symbol}} = ())
-    cfg = get(BIT_VARIANTS, variant) do
-        error("Unknown BiT variant: $variant. Known variants: " *
-              "$(sort(collect(keys(BIT_VARIANTS))))")
-    end
-    sub = _navigate(ps, prefix)
-    in_chans = size(sub.stem_conv.conv.weight, 3)
-    head_classes = haskey(sub, :head_fc) ? size(sub.head_fc.weight, 4) : 0
-    load_classifier = head_classes > 0 && head_classes == cfg.default_num_classes
-    if head_classes > 0 && head_classes != cfg.default_num_classes
+function _load_bit_resnetv2(ps, st, variant::Symbol;
+        in_chans::Int, num_classes::Int,
+        revision::AbstractString,
+        cache_dir::AbstractString,
+        prefix::Tuple{Vararg{Symbol}})
+    cfg = BIT_VARIANTS[variant]
+    load_classifier = num_classes > 0 && num_classes == cfg.default_num_classes
+    if num_classes > 0 && num_classes != cfg.default_num_classes
         @warn "variant $variant ships $(cfg.default_num_classes)-class pretrained weights, " *
-              "but the model has a $head_classes-class head. Loading the backbone only; " *
+              "but the model has a $num_classes-class head. Loading the backbone only; " *
               "the classifier head is left at its Lux.setup random initialization for you to train."
     end
     path = hf_hub_download(cfg.hf_repo, "model.safetensors";

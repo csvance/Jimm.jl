@@ -37,50 +37,34 @@ size, but the listed resolution is where the weights were tuned.
 using Jimm, Lux, Random
 
 # Backbone features (num_classes = 0): returns (W/32, H/32, num_features, N).
-model = create_model(:resnetv2_50x1_bit_goog_in21k; num_classes = 0)
+model, load = create_pretrained(:resnetv2_50x1_bit_goog_in21k; num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_pretrained(ps, st, :resnetv2_50x1_bit_goog_in21k)
+ps, st = load(ps, st)
 x = randn(Float32, 224, 224, 3, 1)
 features, _ = model(x, ps, st)            # (7, 7, 2048, 1)
 ```
 
-`load_pretrained` reads `in_chans` and the classifier presence/shape
-directly from `ps`, so the constructor is the single source of truth.
-The per-family `bit_resnetv2` + `load_bit_resnetv2_pretrained` pair is
-also exported and works identically.
+`create_pretrained` captures `in_chans` and `num_classes` in the
+returned closure, so they're specified once and the loader doesn't
+need to introspect `ps`. Use `create_model(variant; ...)` for a
+random-init build without weights.
 
 ## Transfer learning with a custom classifier
 
 To fine-tune on a downstream task with a different class count, just
-build the model with your target `num_classes`. `load_pretrained`
-populates the backbone and emits a `@warn` letting you know the
-classifier was left at its `Lux.setup` random initialization:
+build the model with your target `num_classes`. The closure populates
+the backbone and emits a `@warn` letting you know the classifier was
+left at its `Lux.setup` random initialization:
 
 ```julia
-model = create_model(:resnetv2_50x1_bit_goog_in21k_ft_in1k; num_classes = 42)
+model, load = create_pretrained(:resnetv2_50x1_bit_goog_in21k_ft_in1k; num_classes = 42)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_pretrained(ps, st, :resnetv2_50x1_bit_goog_in21k_ft_in1k)
+ps, st = load(ps, st)
 # ┌ Warning: variant resnetv2_50x1_bit_goog_in21k_ft_in1k ships 1000-class
 # │ pretrained weights, but the model has a 42-class head. Loading the
 # │ backbone only; the classifier head is left at its Lux.setup random
 # │ initialization for you to train.
 ```
-
-## Advanced: manual mapping with `load_classifier`
-
-If you have a `.safetensors` blob already in memory (e.g., from a fork
-or a non-standard repo layout), [`bit_resnetv2_mapping`](@ref) accepts
-the same flag the loader uses internally:
-
-```julia
-sd = Jimm.Interop.load_safetensors_state_dict(local_path)
-mapping = bit_resnetv2_mapping(sd, :resnetv2_50x1_bit_goog_in21k;
-                                load_classifier = true,   # include head.fc.*
-                                in_chans = 3)
-ps = Jimm.Interop.apply_state_dict(ps, sd, mapping)
-```
-
-Set `load_classifier = false` to skip the `head.fc.*` keys.
 
 ## License
 

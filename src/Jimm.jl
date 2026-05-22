@@ -19,14 +19,10 @@ export std_conv, layernorm2d, grn_layer,
        kaiming_normal_fan_out, normal_init
 
 # Models
-export bit_resnetv2, bit_resnetv2_mapping, load_bit_resnetv2_pretrained,
-       BiTVariant, BIT_VARIANTS,
-       resnet, resnet_mapping, resnet_state_mapping, load_resnet_pretrained,
+export BiTVariant, BIT_VARIANTS,
        ResNetVariant, RESNET_VARIANTS,
-       convnextv2, convnextv2_mapping, load_convnextv2_pretrained,
        ConvNeXtV2Variant, CONVNEXTV2_VARIANTS,
-       convnext, convnext_mapping, load_convnext_pretrained,
        ConvNeXtVariant, CONVNEXT_VARIANTS,
-       create_model, load_pretrained
+       create_model, create_pretrained, default_num_classes
 
 end # module Jimm
