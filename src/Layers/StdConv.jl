@@ -16,19 +16,33 @@ Cross-correlation convolution whose kernel is standardized at forward time.
 Use this in place of `Conv` when porting a `timm` model that wraps its
 convolutions in `StdConv2d` (BiT-ResNet, NFNet, etc.).
 """
-function std_conv(kW::Int, kH::Int, in_ch::Int, out_ch::Int;
-                  stride::Int = 1, pad::Int = 0, eps::Float32 = 1.0f-8,
-                  init_weight = glorot_uniform)
+function std_conv(
+    kW::Int,
+    kH::Int,
+    in_ch::Int,
+    out_ch::Int;
+    stride::Int = 1,
+    pad::Int = 0,
+    eps::Float32 = 1.0f-8,
+    init_weight = glorot_uniform,
+)
     @compact(
-        conv = Conv((kW, kH), in_ch => out_ch;
-                    stride = stride, pad = pad,
-                    use_bias = false,
-                    cross_correlation = true,
-                    init_weight = init_weight),
+        conv = Conv(
+            (kW, kH),
+            in_ch => out_ch;
+            stride = stride,
+            pad = pad,
+            use_bias = false,
+            cross_correlation = true,
+            init_weight = init_weight,
+        ),
         stride = stride,
         pad = pad,
         eps = eps,
-        kW = kW, kH = kH, in_ch = in_ch, out_ch = out_ch,
+        kW = kW,
+        kH = kH,
+        in_ch = in_ch,
+        out_ch = out_ch,
     ) do x
         w = conv.ps.weight  # (kW, kH, in, out); reach through StatefulLuxLayer
         w_flat = reshape(w, (:, out_ch))                          # (kW*kH*in, out)
@@ -36,9 +50,13 @@ function std_conv(kW::Int, kH::Int, in_ch::Int, out_ch::Int;
         σ² = var(w_flat; dims = 1, corrected = false)             # (1, out)
         ŵ_flat = (w_flat .- μ) ./ sqrt.(σ² .+ eps)
         ŵ = reshape(ŵ_flat, (kW, kH, in_ch, out_ch))
-        cdims = NNlib.DenseConvDims(size(x), size(ŵ);
-                                    stride = stride, padding = pad,
-                                    flipkernel = true)
+        cdims = NNlib.DenseConvDims(
+            size(x),
+            size(ŵ);
+            stride = stride,
+            padding = pad,
+            flipkernel = true,
+        )
         @return NNlib.conv(x, ŵ, cdims)
     end
 end

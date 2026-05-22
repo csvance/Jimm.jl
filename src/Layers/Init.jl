@@ -17,9 +17,12 @@ Lux `Conv` weight shape is `(kW, kH, in, out)`, so
 `fan_out = dims[end] * prod(dims[1:end-2])`. For `Dense` weight shape
 `(out, in)`, `fan_out = dims[1]`.
 """
-function kaiming_normal_fan_out(rng::AbstractRNG, ::Type{T},
-                                 dims::Integer...) where {T <: Real}
-    fan_out = length(dims) <= 2 ? dims[1] : dims[end] * prod(dims[1:(end - 2)])
+function kaiming_normal_fan_out(
+    rng::AbstractRNG,
+    ::Type{T},
+    dims::Integer...,
+) where {T<:Real}
+    fan_out = length(dims) <= 2 ? dims[1] : dims[end] * prod(dims[1:(end-2)])
     std = sqrt(T(2) / T(fan_out))
     return std .* randn(rng, T, dims...)
 end
@@ -34,5 +37,4 @@ PyTorch's `nn.init.normal_(weight, mean=0., std=std)`. Used for `timm`'s
 BiT classifier head (`std = 0.01`).
 """
 normal_init(; std::Real = 0.01f0) =
-    (rng::AbstractRNG, dims::Integer...) ->
-        Float32(std) .* randn(rng, Float32, dims...)
+    (rng::AbstractRNG, dims::Integer...) -> Float32(std) .* randn(rng, Float32, dims...)

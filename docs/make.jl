@@ -32,6 +32,4 @@ makedocs(;
     warnonly = [:missing_docs],
 )
 
-deploydocs(;
-    repo = "github.com/csvance/Jimm.jl"
-)
+deploydocs(; repo = "github.com/csvance/Jimm.jl")

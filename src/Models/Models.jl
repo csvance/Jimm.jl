@@ -3,9 +3,14 @@ module Models
 using Lux
 using NNlib
 using ..Layers
-using ..Interop: apply_state_dict, axis_reverse, hf_hub_download,
-                  hf_hub_cache_dir, load_safetensors_state_dict,
-                  as_channel4d, adapt_input_conv
+using ..Interop:
+    apply_state_dict,
+    axis_reverse,
+    hf_hub_download,
+    hf_hub_cache_dir,
+    load_safetensors_state_dict,
+    as_channel4d,
+    adapt_input_conv
 
 # Shared ConvNeXt v1/v2 building blocks must be included before either
 # family's Model.jl, since both reference `_CN_INIT`, `convnext_stage`, the
@@ -47,9 +52,11 @@ function create_model(variant::Symbol; kwargs...)
     elseif haskey(CONVNEXTV2_VARIANTS, variant)
         return convnextv2(variant; kwargs...)
     else
-        error("Unknown variant: $variant. Not found in any of " *
-              "BIT_VARIANTS, RESNET_VARIANTS, CONVNEXT_VARIANTS, " *
-              "CONVNEXTV2_VARIANTS.")
+        error(
+            "Unknown variant: $variant. Not found in any of " *
+            "BIT_VARIANTS, RESNET_VARIANTS, CONVNEXT_VARIANTS, " *
+            "CONVNEXTV2_VARIANTS.",
+        )
     end
 end
 
@@ -70,9 +77,11 @@ function default_num_classes(variant::Symbol)
     elseif haskey(CONVNEXTV2_VARIANTS, variant)
         return CONVNEXTV2_VARIANTS[variant].default_num_classes
     else
-        error("Unknown variant: $variant. Not found in any of " *
-              "BIT_VARIANTS, RESNET_VARIANTS, CONVNEXT_VARIANTS, " *
-              "CONVNEXTV2_VARIANTS.")
+        error(
+            "Unknown variant: $variant. Not found in any of " *
+            "BIT_VARIANTS, RESNET_VARIANTS, CONVNEXT_VARIANTS, " *
+            "CONVNEXTV2_VARIANTS.",
+        )
     end
 end
 
@@ -116,17 +125,27 @@ ps, st = Lux.setup(rng, outer)
 ps, st = load_backbone(ps, st)
 ```
 """
-function create_pretrained(variant::Symbol;
-        in_chans::Int = 3,
-        num_classes::Union{Int,Nothing} = nothing,
-        revision::AbstractString = "main",
-        cache_dir::AbstractString = hf_hub_cache_dir(),
-        prefix::Tuple{Vararg{Symbol}} = ())
+function create_pretrained(
+    variant::Symbol;
+    in_chans::Int = 3,
+    num_classes::Union{Int,Nothing} = nothing,
+    revision::AbstractString = "main",
+    cache_dir::AbstractString = hf_hub_cache_dir(),
+    prefix::Tuple{Vararg{Symbol}} = (),
+)
     nc = num_classes === nothing ? default_num_classes(variant) : num_classes
     model = create_model(variant; in_chans = in_chans, num_classes = nc)
-    load = (ps, st) -> _load_pretrained(ps, st, variant;
-        in_chans = in_chans, num_classes = nc,
-        revision = revision, cache_dir = cache_dir, prefix = prefix)
+    load =
+        (ps, st) -> _load_pretrained(
+            ps,
+            st,
+            variant;
+            in_chans = in_chans,
+            num_classes = nc,
+            revision = revision,
+            cache_dir = cache_dir,
+            prefix = prefix,
+        )
     return model, load
 end
 
@@ -134,37 +153,79 @@ end
 # closure. Takes `in_chans` and `num_classes` as explicit kwargs and
 # forwards them to the per-family loader, which uses them directly
 # instead of introspecting `ps`.
-function _load_pretrained(ps, st, variant::Symbol;
-        in_chans::Int, num_classes::Int,
-        revision::AbstractString, cache_dir::AbstractString,
-        prefix::Tuple{Vararg{Symbol}})
+function _load_pretrained(
+    ps,
+    st,
+    variant::Symbol;
+    in_chans::Int,
+    num_classes::Int,
+    revision::AbstractString,
+    cache_dir::AbstractString,
+    prefix::Tuple{Vararg{Symbol}},
+)
     if haskey(BIT_VARIANTS, variant)
-        return _load_bit_resnetv2(ps, st, variant;
-            in_chans = in_chans, num_classes = num_classes,
-            revision = revision, cache_dir = cache_dir, prefix = prefix)
+        return _load_bit_resnetv2(
+            ps,
+            st,
+            variant;
+            in_chans = in_chans,
+            num_classes = num_classes,
+            revision = revision,
+            cache_dir = cache_dir,
+            prefix = prefix,
+        )
     elseif haskey(RESNET_VARIANTS, variant)
-        return _load_resnet(ps, st, variant;
-            in_chans = in_chans, num_classes = num_classes,
-            revision = revision, cache_dir = cache_dir, prefix = prefix)
+        return _load_resnet(
+            ps,
+            st,
+            variant;
+            in_chans = in_chans,
+            num_classes = num_classes,
+            revision = revision,
+            cache_dir = cache_dir,
+            prefix = prefix,
+        )
     elseif haskey(CONVNEXT_VARIANTS, variant)
-        return _load_convnext(ps, st, variant;
-            in_chans = in_chans, num_classes = num_classes,
-            revision = revision, cache_dir = cache_dir, prefix = prefix)
+        return _load_convnext(
+            ps,
+            st,
+            variant;
+            in_chans = in_chans,
+            num_classes = num_classes,
+            revision = revision,
+            cache_dir = cache_dir,
+            prefix = prefix,
+        )
     elseif haskey(CONVNEXTV2_VARIANTS, variant)
-        return _load_convnextv2(ps, st, variant;
-            in_chans = in_chans, num_classes = num_classes,
-            revision = revision, cache_dir = cache_dir, prefix = prefix)
+        return _load_convnextv2(
+            ps,
+            st,
+            variant;
+            in_chans = in_chans,
+            num_classes = num_classes,
+            revision = revision,
+            cache_dir = cache_dir,
+            prefix = prefix,
+        )
     else
-        error("Unknown variant: $variant. Not found in any of " *
-              "BIT_VARIANTS, RESNET_VARIANTS, CONVNEXT_VARIANTS, " *
-              "CONVNEXTV2_VARIANTS.")
+        error(
+            "Unknown variant: $variant. Not found in any of " *
+            "BIT_VARIANTS, RESNET_VARIANTS, CONVNEXT_VARIANTS, " *
+            "CONVNEXTV2_VARIANTS.",
+        )
     end
 end
 
-export BiTVariant, BIT_VARIANTS,
-       ResNetVariant, RESNET_VARIANTS,
-       ConvNeXtV2Variant, CONVNEXTV2_VARIANTS,
-       ConvNeXtVariant, CONVNEXT_VARIANTS,
-       create_model, create_pretrained, default_num_classes
+export BiTVariant,
+    BIT_VARIANTS,
+    ResNetVariant,
+    RESNET_VARIANTS,
+    ConvNeXtV2Variant,
+    CONVNEXTV2_VARIANTS,
+    ConvNeXtVariant,
+    CONVNEXT_VARIANTS,
+    create_model,
+    create_pretrained,
+    default_num_classes
 
 end # module Models

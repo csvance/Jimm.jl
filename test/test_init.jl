@@ -20,8 +20,8 @@ end
 
 @testset "timm random-init recipes" begin
     @testset "BiT ResNetV2 r50x1" begin
-        model = create_model(:resnetv2_50x1_bit_goog_in21k;
-                              in_chans = 3, num_classes = 21843)
+        model =
+            create_model(:resnetv2_50x1_bit_goog_in21k; in_chans = 3, num_classes = 21843)
         ps, _ = Lux.setup(Xoshiro(0), model)
 
         # Stem: 7x7, in=3, out=64. Kaiming fan_out → std = sqrt(2/(64*49)).
@@ -87,8 +87,8 @@ end
     end
 
     @testset "ConvNeXtV2 atto (ft_in1k)" begin
-        model = create_model(:convnextv2_atto_fcmae_ft_in1k;
-                            in_chans = 3, num_classes = 1000)
+        model =
+            create_model(:convnextv2_atto_fcmae_ft_in1k; in_chans = 3, num_classes = 1000)
         ps, _ = Lux.setup(Xoshiro(0), model)
 
         # Stem 4x4 conv: trunc_normal(std=0.02), zero bias.

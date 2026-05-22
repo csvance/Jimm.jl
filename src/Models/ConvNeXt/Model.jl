@@ -41,19 +41,41 @@ include("Config.jl")
 # right before the residual sum. gamma is stored as a 1D (C,) parameter,
 # matching the PyTorch state-dict shape so the mapping transform is
 # `identity`.
-function convnext_block(C::Int; mlp_ratio::Int = 4, kernel::Int = 7,
-                         ls_init::Float32 = _CN_V1_LS_INIT)
+function convnext_block(
+    C::Int;
+    mlp_ratio::Int = 4,
+    kernel::Int = 7,
+    ls_init::Float32 = _CN_V1_LS_INIT,
+)
     H = mlp_ratio * C
     @compact(
-        conv_dw = Conv((kernel, kernel), C => C;
-                       groups = C, pad = kernel ÷ 2,
-                       use_bias = true, cross_correlation = true,
-                       init_weight = _CN_INIT, init_bias = zeros32),
+        conv_dw = Conv(
+            (kernel, kernel),
+            C => C;
+            groups = C,
+            pad = kernel ÷ 2,
+            use_bias = true,
+            cross_correlation = true,
+            init_weight = _CN_INIT,
+            init_bias = zeros32,
+        ),
         norm = layernorm2d(C),
-        fc1  = Conv((1, 1), C => H; use_bias = true, cross_correlation = true,
-                    init_weight = _CN_INIT, init_bias = zeros32),
-        fc2  = Conv((1, 1), H => C; use_bias = true, cross_correlation = true,
-                    init_weight = _CN_INIT, init_bias = zeros32),
+        fc1 = Conv(
+            (1, 1),
+            C => H;
+            use_bias = true,
+            cross_correlation = true,
+            init_weight = _CN_INIT,
+            init_bias = zeros32,
+        ),
+        fc2 = Conv(
+            (1, 1),
+            H => C;
+            use_bias = true,
+            cross_correlation = true,
+            init_weight = _CN_INIT,
+            init_bias = zeros32,
+        ),
         gamma = fill(ls_init, C),
     ) do x
         y = conv_dw(x)
@@ -81,8 +103,7 @@ _convnext_block_for(ls_init::Float32) = C -> convnext_block(C; ls_init = ls_init
 # future change to the backbone path (activation, downsample, stage
 # composition, etc.) lives here so the feature-extractor and classifier
 # branches can't desync.
-function _convnext_features(x, stem_conv, stem_norm,
-                             stage1, stage2, stage3, stage4)
+function _convnext_features(x, stem_conv, stem_norm, stage1, stage2, stage3, stage4)
     x = stem_norm(stem_conv(x))
     x = stage1(x)
     x = stage2(x)
@@ -107,50 +128,68 @@ DINOv3 variants currently registered ship a usable head, so this branch
 is exercised only when extending the variant table with future
 checkpoints.
 """
-function convnext(variant::Symbol;
-        in_chans::Int = 3, num_classes::Int = 0)
+function convnext(variant::Symbol; in_chans::Int = 3, num_classes::Int = 0)
     cfg = get(CONVNEXT_VARIANTS, variant) do
-        error("Unknown ConvNeXt variant: $variant. Known variants: " *
-              "$(sort(collect(keys(CONVNEXT_VARIANTS))))")
+        error(
+            "Unknown ConvNeXt variant: $variant. Known variants: " *
+            "$(sort(collect(keys(CONVNEXT_VARIANTS))))",
+        )
     end
     depths = cfg.depths
-    dims   = cfg.dims
+    dims = cfg.dims
     strides = (1, 2, 2, 2)
     block_ctor = _convnext_block_for(cfg.ls_init)
 
     if num_classes == 0
         @compact(
-            stem_conv = Conv((4, 4), in_chans => dims[1];
-                              stride = 4, pad = 0,
-                              use_bias = true, cross_correlation = true,
-                              init_weight = _CN_INIT, init_bias = zeros32),
+            stem_conv = Conv(
+                (4, 4),
+                in_chans => dims[1];
+                stride = 4,
+                pad = 0,
+                use_bias = true,
+                cross_correlation = true,
+                init_weight = _CN_INIT,
+                init_bias = zeros32,
+            ),
             stem_norm = layernorm2d(dims[1]),
             stage1 = convnext_stage(block_ctor, dims[1], dims[1], depths[1], strides[1]),
             stage2 = convnext_stage(block_ctor, dims[1], dims[2], depths[2], strides[2]),
             stage3 = convnext_stage(block_ctor, dims[2], dims[3], depths[3], strides[3]),
             stage4 = convnext_stage(block_ctor, dims[3], dims[4], depths[4], strides[4]),
         ) do x
-            @return _convnext_features(x, stem_conv, stem_norm,
-                                        stage1, stage2, stage3, stage4)
+            @return _convnext_features(
+                x,
+                stem_conv,
+                stem_norm,
+                stage1,
+                stage2,
+                stage3,
+                stage4,
+            )
         end
     else
         nc = num_classes
         @compact(
-            stem_conv = Conv((4, 4), in_chans => dims[1];
-                              stride = 4, pad = 0,
-                              use_bias = true, cross_correlation = true,
-                              init_weight = _CN_INIT, init_bias = zeros32),
+            stem_conv = Conv(
+                (4, 4),
+                in_chans => dims[1];
+                stride = 4,
+                pad = 0,
+                use_bias = true,
+                cross_correlation = true,
+                init_weight = _CN_INIT,
+                init_bias = zeros32,
+            ),
             stem_norm = layernorm2d(dims[1]),
             stage1 = convnext_stage(block_ctor, dims[1], dims[1], depths[1], strides[1]),
             stage2 = convnext_stage(block_ctor, dims[1], dims[2], depths[2], strides[2]),
             stage3 = convnext_stage(block_ctor, dims[2], dims[3], depths[3], strides[3]),
             stage4 = convnext_stage(block_ctor, dims[3], dims[4], depths[4], strides[4]),
             head_norm = layernorm2d(dims[4]),
-            head_fc = Dense(dims[4] => nc;
-                            init_weight = _CN_INIT, init_bias = zeros32),
+            head_fc = Dense(dims[4] => nc; init_weight = _CN_INIT, init_bias = zeros32),
         ) do x
-            x = _convnext_features(x, stem_conv, stem_norm,
-                                    stage1, stage2, stage3, stage4)
+            x = _convnext_features(x, stem_conv, stem_norm, stage1, stage2, stage3, stage4)
             x = NNlib.meanpool(x, size(x)[1:2]; pad = 0)
             x = head_norm(x)
             x = reshape(x, (size(x, 3), size(x, 4)))
@@ -195,14 +234,19 @@ we reshape to `(1, 1, in, out)` to land in a Lux `Conv((1,1))`; (b)
 `head.fc.weight`, which is a Lux `Dense` so it needs `axis_reverse` to
 transpose back to `(out, in)`.
 """
-function convnext_mapping(state_dict::Dict, variant::Symbol;
-        load_head_norm::Bool = false,
-        load_classifier::Bool = false,
-        in_chans::Int = 3,
-        prefix::Tuple{Vararg{Symbol}} = ())
+function convnext_mapping(
+    state_dict::Dict,
+    variant::Symbol;
+    load_head_norm::Bool = false,
+    load_classifier::Bool = false,
+    in_chans::Int = 3,
+    prefix::Tuple{Vararg{Symbol}} = (),
+)
     cfg = get(CONVNEXT_VARIANTS, variant) do
-        error("Unknown ConvNeXt variant: $variant. Known variants: " *
-              "$(sort(collect(keys(CONVNEXT_VARIANTS))))")
+        error(
+            "Unknown ConvNeXt variant: $variant. Known variants: " *
+            "$(sort(collect(keys(CONVNEXT_VARIANTS))))",
+        )
     end
     mapping = _CN_MAPPING_ENTRY[]
 
@@ -218,37 +262,78 @@ function convnext_mapping(state_dict::Dict, variant::Symbol;
             push_downsample_mapping!(mapping, prefix, stage_sym, py_stage)
         end
 
-        for j in 1:depth
+        for j = 1:depth
             block_path = convnext_stage_block_path(i, stride, j)
             py_block = "$(py_stage).blocks.$(j - 1)"
 
-            push!(mapping, ("$(py_block).conv_dw.weight",
-                            (prefix..., block_path..., :conv_dw, :weight),
-                            identity))
-            push!(mapping, ("$(py_block).conv_dw.bias",
-                            (prefix..., block_path..., :conv_dw, :bias),
-                            identity))
-            push!(mapping, ("$(py_block).norm.weight",
-                            (prefix..., block_path..., :norm, :scale),
-                            as_channel4d))
-            push!(mapping, ("$(py_block).norm.bias",
-                            (prefix..., block_path..., :norm, :bias),
-                            as_channel4d))
-            push!(mapping, ("$(py_block).mlp.fc1.weight",
-                            (prefix..., block_path..., :fc1, :weight),
-                            _linear_to_conv1x1))
-            push!(mapping, ("$(py_block).mlp.fc1.bias",
-                            (prefix..., block_path..., :fc1, :bias),
-                            identity))
-            push!(mapping, ("$(py_block).mlp.fc2.weight",
-                            (prefix..., block_path..., :fc2, :weight),
-                            _linear_to_conv1x1))
-            push!(mapping, ("$(py_block).mlp.fc2.bias",
-                            (prefix..., block_path..., :fc2, :bias),
-                            identity))
-            push!(mapping, ("$(py_block).gamma",
-                            (prefix..., block_path..., :gamma),
-                            identity))
+            push!(
+                mapping,
+                (
+                    "$(py_block).conv_dw.weight",
+                    (prefix..., block_path..., :conv_dw, :weight),
+                    identity,
+                ),
+            )
+            push!(
+                mapping,
+                (
+                    "$(py_block).conv_dw.bias",
+                    (prefix..., block_path..., :conv_dw, :bias),
+                    identity,
+                ),
+            )
+            push!(
+                mapping,
+                (
+                    "$(py_block).norm.weight",
+                    (prefix..., block_path..., :norm, :scale),
+                    as_channel4d,
+                ),
+            )
+            push!(
+                mapping,
+                (
+                    "$(py_block).norm.bias",
+                    (prefix..., block_path..., :norm, :bias),
+                    as_channel4d,
+                ),
+            )
+            push!(
+                mapping,
+                (
+                    "$(py_block).mlp.fc1.weight",
+                    (prefix..., block_path..., :fc1, :weight),
+                    _linear_to_conv1x1,
+                ),
+            )
+            push!(
+                mapping,
+                (
+                    "$(py_block).mlp.fc1.bias",
+                    (prefix..., block_path..., :fc1, :bias),
+                    identity,
+                ),
+            )
+            push!(
+                mapping,
+                (
+                    "$(py_block).mlp.fc2.weight",
+                    (prefix..., block_path..., :fc2, :weight),
+                    _linear_to_conv1x1,
+                ),
+            )
+            push!(
+                mapping,
+                (
+                    "$(py_block).mlp.fc2.bias",
+                    (prefix..., block_path..., :fc2, :bias),
+                    identity,
+                ),
+            )
+            push!(
+                mapping,
+                ("$(py_block).gamma", (prefix..., block_path..., :gamma), identity),
+            )
         end
     end
 
@@ -300,11 +385,16 @@ When `in_chans != 3`, the stem weight is adapted from the released
 3-channel checkpoint, matching timm's `adapt_input_conv` behaviour at
 load time.
 """
-function _load_convnext(ps, st, variant::Symbol;
-        in_chans::Int, num_classes::Int,
-        revision::AbstractString,
-        cache_dir::AbstractString,
-        prefix::Tuple{Vararg{Symbol}})
+function _load_convnext(
+    ps,
+    st,
+    variant::Symbol;
+    in_chans::Int,
+    num_classes::Int,
+    revision::AbstractString,
+    cache_dir::AbstractString,
+    prefix::Tuple{Vararg{Symbol}},
+)
     cfg = CONVNEXT_VARIANTS[variant]
     # `head_norm` exists in the model iff `num_classes > 0` (the
     # constructor's `else` branch). The classifier rule is the same
@@ -317,14 +407,24 @@ function _load_convnext(ps, st, variant::Symbol;
               "(and head_norm) only; the classifier is left at its Lux.setup random " *
               "initialization for you to train."
     end
-    path = hf_hub_download(cfg.hf_repo, "model.safetensors";
-                            revision = revision, cache_dir = cache_dir)
+    path = hf_hub_download(
+        cfg.hf_repo,
+        "model.safetensors";
+        revision = revision,
+        cache_dir = cache_dir,
+    )
     sd = load_safetensors_state_dict(path)
-    ps = apply_state_dict(ps, sd,
-                          convnext_mapping(sd, variant;
-                                            load_head_norm = load_head_norm,
-                                            load_classifier = load_classifier,
-                                            in_chans = in_chans,
-                                            prefix = prefix))
+    ps = apply_state_dict(
+        ps,
+        sd,
+        convnext_mapping(
+            sd,
+            variant;
+            load_head_norm = load_head_norm,
+            load_classifier = load_classifier,
+            in_chans = in_chans,
+            prefix = prefix,
+        ),
+    )
     return ps, st
 end

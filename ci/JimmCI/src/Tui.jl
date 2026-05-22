@@ -2,8 +2,8 @@ module Tui
 
 using Dates
 using Tachikoma
-import Tachikoma: view, update!, should_quit, task_queue, set_wake!,
-                  has_pending_output, init!, cleanup!
+import Tachikoma:
+    view, update!, should_quit, task_queue, set_wake!, has_pending_output, init!, cleanup!
 
 using ..ConfigMod
 using ..GitHubAppMod
@@ -32,20 +32,24 @@ end
     gh::GitHubApp
     builder::Builder
 
-    jobs::Vector{Job}  = Job[]
-    selected::Int      = 1
-    list_offset::Int   = 0
-    mode::ViewMode     = VIEW_LIST
+    jobs::Vector{Job} = Job[]
+    selected::Int = 1
+    list_offset::Int = 0
+    mode::ViewMode = VIEW_LIST
 
     running::Union{Nothing,RunningJob} = nothing
     queue::Vector{Job} = Job[]            # back-to-back master queue
     pending_fork::Union{Nothing,Job} = nothing  # job awaiting fork-confirm
 
     # Live-output plumbing
-    log_pane::ScrollPane = ScrollPane(String[];
-        block = Block(title = " build output ",
-                      border_style = tstyle(:border),
-                      title_style  = tstyle(:title, bold = true)))
+    log_pane::ScrollPane = ScrollPane(
+        String[];
+        block = Block(
+            title = " build output ",
+            border_style = tstyle(:border),
+            title_style = tstyle(:title, bold = true),
+        ),
+    )
 
     # Background tasks (Tachikoma)
     tq::TaskQueue = TaskQueue()
@@ -54,14 +58,14 @@ end
     log_channel::Channel{String} = Channel{String}(Inf)
     _wake::Union{Nothing,Function} = nothing
 
-    refreshing::Bool   = false
-    status::String     = "press r to refresh, ↑/↓ to select, Enter to run"
-    tick::Int          = 0
-    quit::Bool         = false
+    refreshing::Bool = false
+    status::String = "press r to refresh, ↑/↓ to select, Enter to run"
+    tick::Int = 0
+    quit::Bool = false
 end
 
-should_quit(m::TuiModel)        = m.quit
-task_queue(m::TuiModel)         = m.tq
+should_quit(m::TuiModel) = m.quit
+task_queue(m::TuiModel) = m.tq
 set_wake!(m::TuiModel, f::Function) = (m._wake = f; nothing)
 has_pending_output(m::TuiModel) = isready(m.log_channel)
 
@@ -88,13 +92,13 @@ function _short(sha::AbstractString, n::Int = 8)
 end
 
 function _row_text(j::Job)
-    when  = Dates.format(j.created_at, dateformat"yyyy-mm-dd HH:MM")
-    kind  = j.kind == Jobs.PR_JOB ? "PR    " : "master"
-    fams  = join(j.families, ",")
+    when = Dates.format(j.created_at, dateformat"yyyy-mm-dd HH:MM")
+    kind = j.kind == Jobs.PR_JOB ? "PR    " : "master"
+    fams = join(j.families, ",")
     glyph = j.is_fork ? "⚠ " : "  "
     title = if j.kind == Jobs.PR_JOB
-        repo  = j.head_repo === nothing ? "?" : j.head_repo
-        body  = j.pr_title === nothing ? "" : j.pr_title
+        repo = j.head_repo === nothing ? "?" : j.head_repo
+        body = j.pr_title === nothing ? "" : j.pr_title
         "#$(j.pr_number) [$repo] $body"
     else
         "master @ $(_short(j.head_sha))"
@@ -125,14 +129,14 @@ end
 
 _current_master_index_or_nothing(m::TuiModel) =
     1 <= m.selected <= length(m.jobs) && m.jobs[m.selected].kind == Jobs.MASTER_JOB ?
-        m.selected : nothing
+    m.selected : nothing
 
 # ── Background work: discovery (refresh) ─────────────────────────────
 
 function _spawn_refresh!(m::TuiModel)
     m.refreshing && return
     m.refreshing = true
-    m.status     = "refreshing…"
+    m.status = "refreshing…"
     spawn_task!(m.tq, :refresh) do
         return discover_jobs(m.cfg, m.gh)
     end
@@ -143,15 +147,17 @@ end
 
 function _spawn_run!(m::TuiModel, job::Job)
     cancel = BuildCancel()
-    m.running = RunningJob(job, cancel, now(UTC), isempty(job.families) ? "" : first(job.families))
-    m.mode    = VIEW_RUNNING
+    m.running =
+        RunningJob(job, cancel, now(UTC), isempty(job.families) ? "" : first(job.families))
+    m.mode = VIEW_RUNNING
     # Clear the log pane between jobs so the user isn't confused by
     # leftover output from the previous build.
     empty!(m.log_pane.content::Vector{String})
     m.log_pane.block = Block(
-        title       = " build output  $(job.label) ",
+        title = " build output  $(job.label) ",
         border_style = tstyle(:border),
-        title_style  = tstyle(:title, bold = true))
+        title_style = tstyle(:title, bold = true),
+    )
 
     on_line = _log_callback(m)
     spawn_task!(m.tq, :run) do
@@ -181,8 +187,13 @@ end
 function _spawn_skip!(m::TuiModel, job::Job)
     spawn_task!(m.tq, :skip) do
         try
-            mark_skipped(m.gh, repo_fullname(m.cfg), job.head_sha, job.families;
-                         source = :run)
+            mark_skipped(
+                m.gh,
+                repo_fullname(m.cfg),
+                job.head_sha,
+                job.families;
+                source = :run,
+            )
             return job.head_sha
         catch e
             bt = catch_backtrace()
@@ -215,12 +226,12 @@ function _on_key_list!(m::TuiModel, evt::KeyEvent)
     if evt.key == :char
         c = evt.char
         c == 'q' && (m.quit = true; return)
-        c == 'j' && (_move_selection!(m,  1); return)
+        c == 'j' && (_move_selection!(m, 1); return)
         c == 'k' && (_move_selection!(m, -1); return)
         c == 'r' && (_spawn_refresh!(m); return)
-        c == 's' && (_skip_selected!(m);   return)
+        c == 's' && (_skip_selected!(m); return)
         c == 'A' && (_run_all_master!(m); return)
-        c == 'y' && (_run_selected!(m);   return)
+        c == 'y' && (_run_selected!(m); return)
     elseif evt.key == :up
         _move_selection!(m, -1)
     elseif evt.key == :down
@@ -287,7 +298,7 @@ function _run_selected!(m::TuiModel)
         # Two-step confirm: fork PRs run contributor code on the CI VM, so
         # the maintainer has to press y twice to approve.
         m.pending_fork = job
-        m.mode         = VIEW_CONFIRM_FORK
+        m.mode = VIEW_CONFIRM_FORK
         return
     end
     # Remove from list — it's now in flight.
@@ -315,8 +326,8 @@ end
 
 function _cancel_fork_modal!(m::TuiModel)
     m.pending_fork = nothing
-    m.mode         = VIEW_LIST
-    m.status       = "fork run cancelled"
+    m.mode = VIEW_LIST
+    m.status = "fork run cancelled"
 end
 
 function _run_all_master!(m::TuiModel)
@@ -328,8 +339,7 @@ function _run_all_master!(m::TuiModel)
     end
     # Build queue oldest-first: anchor + every older master commit.
     anchor = m.jobs[idx]
-    masters_older = [j for (i, j) in pairs(m.jobs)
-                     if i > idx && j.kind == Jobs.MASTER_JOB]
+    masters_older = [j for (i, j) in pairs(m.jobs) if i > idx && j.kind == Jobs.MASTER_JOB]
     sort!(masters_older; by = j -> j.created_at)   # oldest first
     queue = vcat(masters_older, [anchor])
 
@@ -343,7 +353,7 @@ function _run_all_master!(m::TuiModel)
 
     isempty(queue) && return
     first_job = popfirst!(queue)
-    m.queue   = queue
+    m.queue = queue
     _spawn_run!(m, first_job)
 end
 
@@ -360,7 +370,7 @@ function _cancel_current!(m::TuiModel)
     rj === nothing && return
     request_cancel!(rj.cancel)
     m.status = "cancellation requested for $(rj.job.label)…"
-    m.mode   = VIEW_RUNNING
+    m.mode = VIEW_RUNNING
 end
 
 function _cancel_all!(m::TuiModel)
@@ -379,7 +389,7 @@ function update!(m::TuiModel, evt::TaskEvent)
         else
             m.jobs = evt.value::Vector{Job}
             m.selected = clamp(m.selected, 1, max(length(m.jobs), 1))
-            m.status   = "$(length(m.jobs)) job(s) pending"
+            m.status = "$(length(m.jobs)) job(s) pending"
         end
     elseif evt.id == :run
         # Job task finished — clean up `running`, drain the queue if any.
@@ -421,14 +431,13 @@ function view(m::TuiModel, f::Frame)
     buf = f.buffer
 
     outer = Block(
-        title        = " jimm-ci ",
+        title = " jimm-ci ",
         border_style = tstyle(:border),
-        title_style  = tstyle(:title, bold = true),
+        title_style = tstyle(:title, bold = true),
     )
     inner = render(outer, f.area, buf)
 
-    rows = split_layout(Layout(Vertical,
-        [Fixed(1), Fill(), Fixed(1)]), inner)
+    rows = split_layout(Layout(Vertical, [Fixed(1), Fill(), Fixed(1)]), inner)
     length(rows) < 3 && return
     header_area, body_area, status_area = rows[1], rows[2], rows[3]
 
@@ -465,25 +474,39 @@ end
 function _render_list!(m::TuiModel, buf, area)
     if isempty(m.jobs)
         msg = "no jobs to run — press r to refresh"
-        set_string!(buf, area.x + max(0, (area.width - length(msg)) ÷ 2),
-                    area.y + area.height ÷ 2, msg, tstyle(:text_dim);
-                    max_x = right(area))
+        set_string!(
+            buf,
+            area.x + max(0, (area.width - length(msg)) ÷ 2),
+            area.y + area.height ÷ 2,
+            msg,
+            tstyle(:text_dim);
+            max_x = right(area),
+        )
         return
     end
-    items = [ListItem(_row_text(j),
-        j.is_fork                ? tstyle(:warning)   :
-        j.kind == Jobs.PR_JOB    ? tstyle(:primary)   :
-                                   tstyle(:secondary))
-        for j in m.jobs]
-    render(SelectableList(items;
-        selected         = m.selected,
-        offset           = m.list_offset,
-        block            = Block(title        = " queue ",
-                                  border_style = tstyle(:border),
-                                  title_style  = tstyle(:title)),
-        highlight_style  = tstyle(:accent, bold = true),
-        tick             = m.tick,
-    ), area, buf)
+    items = [
+        ListItem(
+            _row_text(j),
+            j.is_fork ? tstyle(:warning) :
+            j.kind == Jobs.PR_JOB ? tstyle(:primary) : tstyle(:secondary),
+        ) for j in m.jobs
+    ]
+    render(
+        SelectableList(
+            items;
+            selected = m.selected,
+            offset = m.list_offset,
+            block = Block(
+                title = " queue ",
+                border_style = tstyle(:border),
+                title_style = tstyle(:title),
+            ),
+            highlight_style = tstyle(:accent, bold = true),
+            tick = m.tick,
+        ),
+        area,
+        buf,
+    )
 end
 
 function _render_running!(m::TuiModel, buf, area)
@@ -495,19 +518,32 @@ function _render_running!(m::TuiModel, buf, area)
     end
     rows = split_layout(Layout(Vertical, [Fixed(2), Fill()]), area)
     length(rows) < 2 && return
-    info_area = rows[1]; pane_area = rows[2]
+    info_area = rows[1];
+    pane_area = rows[2]
 
     elapsed = Dates.value(now(UTC) - rj.started_at) ÷ 1000
     current = isempty(rj.current_family) ? "(starting)" : rj.current_family
-    info = "running $(rj.job.label)  elapsed $(elapsed)s  on $(current) " *
-           "[$(length(rj.job.families)) families: $(join(rj.job.families, ","))]"
-    set_string!(buf, info_area.x + 1, info_area.y, info,
-                tstyle(:primary, bold = true); max_x = right(info_area))
+    info =
+        "running $(rj.job.label)  elapsed $(elapsed)s  on $(current) " *
+        "[$(length(rj.job.families)) families: $(join(rj.job.families, ","))]"
+    set_string!(
+        buf,
+        info_area.x + 1,
+        info_area.y,
+        info,
+        tstyle(:primary, bold = true);
+        max_x = right(info_area),
+    )
     queue_n = length(m.queue)
     if queue_n > 0
-        set_string!(buf, info_area.x + 1, info_area.y + 1,
-                    "back-to-back queue: $queue_n more",
-                    tstyle(:text_dim); max_x = right(info_area))
+        set_string!(
+            buf,
+            info_area.x + 1,
+            info_area.y + 1,
+            "back-to-back queue: $queue_n more",
+            tstyle(:text_dim);
+            max_x = right(info_area),
+        )
     end
     render(m.log_pane, pane_area, buf)
 end
@@ -517,19 +553,34 @@ function _render_cancel_modal!(m::TuiModel, buf, area)
     h = 7
     (w < 10 || h > area.height) && return
     rect = center(area, w, h)
-    for cy in rect.y:bottom(rect), cx in rect.x:right(rect)
+    for cy = rect.y:bottom(rect), cx = rect.x:right(rect)
         in_bounds(buf, cx, cy) && set_char!(buf, cx, cy, ' ', tstyle(:text))
     end
-    inner = render(Block(title = " cancel? ",
-                         border_style = tstyle(:warning, bold = true),
-                         title_style  = tstyle(:warning, bold = true)),
-                   rect, buf)
-    set_string!(buf, inner.x + 2, inner.y + 1,
-                "cancel the running build?",
-                tstyle(:text); max_x = right(inner))
-    set_string!(buf, inner.x + 2, inner.y + 3,
-                "[y] cancel current   [a] cancel current + queue   [n] keep running",
-                tstyle(:text_dim); max_x = right(inner))
+    inner = render(
+        Block(
+            title = " cancel? ",
+            border_style = tstyle(:warning, bold = true),
+            title_style = tstyle(:warning, bold = true),
+        ),
+        rect,
+        buf,
+    )
+    set_string!(
+        buf,
+        inner.x + 2,
+        inner.y + 1,
+        "cancel the running build?",
+        tstyle(:text);
+        max_x = right(inner),
+    )
+    set_string!(
+        buf,
+        inner.x + 2,
+        inner.y + 3,
+        "[y] cancel current   [a] cancel current + queue   [n] keep running",
+        tstyle(:text_dim);
+        max_x = right(inner),
+    )
 end
 
 function _render_fork_modal!(m::TuiModel, buf, area)
@@ -539,27 +590,52 @@ function _render_fork_modal!(m::TuiModel, buf, area)
     h = 9
     (w < 20 || h > area.height) && return
     rect = center(area, w, h)
-    for cy in rect.y:bottom(rect), cx in rect.x:right(rect)
+    for cy = rect.y:bottom(rect), cx = rect.x:right(rect)
         in_bounds(buf, cx, cy) && set_char!(buf, cx, cy, ' ', tstyle(:text))
     end
-    inner = render(Block(title = " ⚠ fork PR — confirm ",
-                         border_style = tstyle(:warning, bold = true),
-                         title_style  = tstyle(:warning, bold = true)),
-                   rect, buf)
-    repo  = job.head_repo === nothing ? "?" : job.head_repo
-    title = job.pr_title  === nothing ? "" : job.pr_title
-    set_string!(buf, inner.x + 2, inner.y + 1,
-                "PR #$(job.pr_number) from $(repo)",
-                tstyle(:text); max_x = right(inner))
-    set_string!(buf, inner.x + 2, inner.y + 2,
-                "head $(_short(job.head_sha, 12))  $(title)",
-                tstyle(:text_dim); max_x = right(inner))
-    set_string!(buf, inner.x + 2, inner.y + 4,
-                "Running this executes contributor code on the CI VM.",
-                tstyle(:text); max_x = right(inner))
-    set_string!(buf, inner.x + 2, inner.y + 6,
-                "[y] run   [n/Esc] cancel",
-                tstyle(:text_dim); max_x = right(inner))
+    inner = render(
+        Block(
+            title = " ⚠ fork PR — confirm ",
+            border_style = tstyle(:warning, bold = true),
+            title_style = tstyle(:warning, bold = true),
+        ),
+        rect,
+        buf,
+    )
+    repo = job.head_repo === nothing ? "?" : job.head_repo
+    title = job.pr_title === nothing ? "" : job.pr_title
+    set_string!(
+        buf,
+        inner.x + 2,
+        inner.y + 1,
+        "PR #$(job.pr_number) from $(repo)",
+        tstyle(:text);
+        max_x = right(inner),
+    )
+    set_string!(
+        buf,
+        inner.x + 2,
+        inner.y + 2,
+        "head $(_short(job.head_sha, 12))  $(title)",
+        tstyle(:text_dim);
+        max_x = right(inner),
+    )
+    set_string!(
+        buf,
+        inner.x + 2,
+        inner.y + 4,
+        "Running this executes contributor code on the CI VM.",
+        tstyle(:text);
+        max_x = right(inner),
+    )
+    set_string!(
+        buf,
+        inner.x + 2,
+        inner.y + 6,
+        "[y] run   [n/Esc] cancel",
+        tstyle(:text_dim);
+        max_x = right(inner),
+    )
 end
 
 function _render_status!(m::TuiModel, buf, area)
@@ -572,10 +648,14 @@ function _render_status!(m::TuiModel, buf, area)
     else
         "[y] yes  [a] cancel queue too  [n/Esc] keep running"
     end
-    render(StatusBar(
-        left  = [Span("  $(m.status)  ", tstyle(:text_dim))],
-        right = [Span(hint * " ",        tstyle(:text_dim))],
-    ), area, buf)
+    render(
+        StatusBar(
+            left = [Span("  $(m.status)  ", tstyle(:text_dim))],
+            right = [Span(hint * " ", tstyle(:text_dim))],
+        ),
+        area,
+        buf,
+    )
 end
 
 # ── Entry point ──────────────────────────────────────────────────────

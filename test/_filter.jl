@@ -44,10 +44,10 @@ function _jimm_variant_family(v::Symbol)
     # start with the same prefix. (Julia's `startswith` requires an exact
     # prefix match, so `"convnextv2_atto_fcmae"` does not start with
     # `"convnext_"`, but explicit ordering still documents the intent.)
-    startswith(s, "convnextv2_")       && return "convnextv2"
-    startswith(s, "convnext_")         && return "convnext"
+    startswith(s, "convnextv2_") && return "convnextv2"
+    startswith(s, "convnext_") && return "convnext"
     startswith(s, "resnetv2_") && occursin("_bit_", s) && return "bit"
-    startswith(s, "resnet")            && return "resnet"
+    startswith(s, "resnet") && return "resnet"
     return ""
 end
 

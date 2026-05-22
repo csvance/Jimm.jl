@@ -27,8 +27,7 @@ const TEST_URL = "https://huggingface.co/timm/resnetv2_50x1_bit.goog_in21k/resol
     # Force a real download every run; the cached-hit fast path in
     # hf_download returns immediately, which would make the test
     # meaningless.
-    dest = joinpath(tempdir(),
-                    "jimm_hf_download_nonblock_$(rand(UInt32)).json")
+    dest = joinpath(tempdir(), "jimm_hf_download_nonblock_$(rand(UInt32)).json")
     isfile(dest) && rm(dest)
 
     counter = Threads.Atomic{Int}(0)

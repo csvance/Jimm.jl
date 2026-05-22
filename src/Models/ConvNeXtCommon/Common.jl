@@ -34,7 +34,7 @@
 const _CN_INIT = truncated_normal(; mean = 0.0f0, std = 0.02f0)
 
 # Mapping entry type alias shared by both family-level mapping builders.
-const _CN_MAPPING_ENTRY = Tuple{String, Tuple{Vararg{Symbol}}, Function}
+const _CN_MAPPING_ENTRY = Tuple{String,Tuple{Vararg{Symbol}},Function}
 
 """
     convnext_downsample(in_C, out_C) -> @compact block
@@ -47,10 +47,16 @@ conv ordering required for parity.
 function convnext_downsample(in_C::Int, out_C::Int)
     @compact(
         norm = layernorm2d(in_C),
-        conv = Conv((2, 2), in_C => out_C;
-                    stride = 2, pad = 0,
-                    use_bias = true, cross_correlation = true,
-                    init_weight = _CN_INIT, init_bias = zeros32),
+        conv = Conv(
+            (2, 2),
+            in_C => out_C;
+            stride = 2,
+            pad = 0,
+            use_bias = true,
+            cross_correlation = true,
+            init_weight = _CN_INIT,
+            init_bias = zeros32,
+        ),
     ) do x
         @return conv(norm(x))
     end
@@ -71,9 +77,8 @@ specific mapping functions can address `(:stage{i}, :layer_{j})` for
 stride-1 stages and `(:stage{i}, :blocks, :layer_{j})` for stride-2
 stages. See [`convnext_stage_block_path`](@ref).
 """
-function convnext_stage(block_ctor, in_C::Int, out_C::Int,
-                         depth::Int, stride::Int)
-    blocks = [block_ctor(out_C) for _ in 1:depth]
+function convnext_stage(block_ctor, in_C::Int, out_C::Int, depth::Int, stride::Int)
+    blocks = [block_ctor(out_C) for _ = 1:depth]
     if stride == 1
         return Chain(blocks...)
     else
@@ -116,18 +121,12 @@ the conv weight transform becomes `adapt_input_conv(in_chans)` so the
 released 3-channel weight is collapsed to match the requested input channel
 count, mirroring timm's behaviour.
 """
-function push_stem_mapping!(mapping::Vector,
-                             prefix::Tuple{Vararg{Symbol}},
-                             in_chans::Int)
+function push_stem_mapping!(mapping::Vector, prefix::Tuple{Vararg{Symbol}}, in_chans::Int)
     stem_w_transform = in_chans == 3 ? identity : adapt_input_conv(in_chans)
-    push!(mapping, ("stem.0.weight",
-                    (prefix..., :stem_conv, :weight), stem_w_transform))
-    push!(mapping, ("stem.0.bias",
-                    (prefix..., :stem_conv, :bias),   identity))
-    push!(mapping, ("stem.1.weight",
-                    (prefix..., :stem_norm, :scale),  as_channel4d))
-    push!(mapping, ("stem.1.bias",
-                    (prefix..., :stem_norm, :bias),   as_channel4d))
+    push!(mapping, ("stem.0.weight", (prefix..., :stem_conv, :weight), stem_w_transform))
+    push!(mapping, ("stem.0.bias", (prefix..., :stem_conv, :bias), identity))
+    push!(mapping, ("stem.1.weight", (prefix..., :stem_norm, :scale), as_channel4d))
+    push!(mapping, ("stem.1.bias", (prefix..., :stem_norm, :bias), as_channel4d))
     return mapping
 end
 
@@ -139,21 +138,44 @@ stage's downsample (`downsample.0` = LayerNorm2d, `downsample.1` = Conv) to
 `mapping`. `stage_sym` is the Lux-side stage symbol (e.g. `:stage2`);
 `py_stage` is the PyTorch-side prefix (e.g. `"stages.1"`).
 """
-function push_downsample_mapping!(mapping::Vector,
-                                   prefix::Tuple{Vararg{Symbol}},
-                                   stage_sym::Symbol, py_stage::String)
-    push!(mapping, ("$(py_stage).downsample.0.weight",
-                    (prefix..., stage_sym, :downsample, :norm, :scale),
-                    as_channel4d))
-    push!(mapping, ("$(py_stage).downsample.0.bias",
-                    (prefix..., stage_sym, :downsample, :norm, :bias),
-                    as_channel4d))
-    push!(mapping, ("$(py_stage).downsample.1.weight",
-                    (prefix..., stage_sym, :downsample, :conv, :weight),
-                    identity))
-    push!(mapping, ("$(py_stage).downsample.1.bias",
-                    (prefix..., stage_sym, :downsample, :conv, :bias),
-                    identity))
+function push_downsample_mapping!(
+    mapping::Vector,
+    prefix::Tuple{Vararg{Symbol}},
+    stage_sym::Symbol,
+    py_stage::String,
+)
+    push!(
+        mapping,
+        (
+            "$(py_stage).downsample.0.weight",
+            (prefix..., stage_sym, :downsample, :norm, :scale),
+            as_channel4d,
+        ),
+    )
+    push!(
+        mapping,
+        (
+            "$(py_stage).downsample.0.bias",
+            (prefix..., stage_sym, :downsample, :norm, :bias),
+            as_channel4d,
+        ),
+    )
+    push!(
+        mapping,
+        (
+            "$(py_stage).downsample.1.weight",
+            (prefix..., stage_sym, :downsample, :conv, :weight),
+            identity,
+        ),
+    )
+    push!(
+        mapping,
+        (
+            "$(py_stage).downsample.1.bias",
+            (prefix..., stage_sym, :downsample, :conv, :bias),
+            identity,
+        ),
+    )
     return mapping
 end
 
@@ -166,10 +188,8 @@ this can be loaded even when the user built the model with a custom
 classifier dimension.
 """
 function push_head_norm_mapping!(mapping::Vector, prefix::Tuple{Vararg{Symbol}})
-    push!(mapping, ("head.norm.weight",
-                    (prefix..., :head_norm, :scale), as_channel4d))
-    push!(mapping, ("head.norm.bias",
-                    (prefix..., :head_norm, :bias),  as_channel4d))
+    push!(mapping, ("head.norm.weight", (prefix..., :head_norm, :scale), as_channel4d))
+    push!(mapping, ("head.norm.bias", (prefix..., :head_norm, :bias), as_channel4d))
     return mapping
 end
 
@@ -182,9 +202,7 @@ from PyTorch's `(out, in)` it's `(in, out)`, but Lux `Dense` stores
 weight as `(out, in)`, so `axis_reverse` is applied to transpose it.
 """
 function push_head_fc_mapping!(mapping::Vector, prefix::Tuple{Vararg{Symbol}})
-    push!(mapping, ("head.fc.weight",
-                    (prefix..., :head_fc, :weight),  axis_reverse))
-    push!(mapping, ("head.fc.bias",
-                    (prefix..., :head_fc, :bias),    identity))
+    push!(mapping, ("head.fc.weight", (prefix..., :head_fc, :weight), axis_reverse))
+    push!(mapping, ("head.fc.bias", (prefix..., :head_fc, :bias), identity))
     return mapping
 end

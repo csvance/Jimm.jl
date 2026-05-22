@@ -35,8 +35,8 @@ Fields:
 """
 struct ConvNeXtV2Variant
     name::Symbol
-    depths::NTuple{4, Int}
-    dims::NTuple{4, Int}
+    depths::NTuple{4,Int}
+    dims::NTuple{4,Int}
     hf_repo::String
     default_num_classes::Int
     default_input_size::Int
@@ -45,22 +45,22 @@ end
 # Per-size architecture parameters. Every checkpoint flavour for a given size
 # shares depths/dims; only the HF repo, head class count, and native input
 # resolution change.
-const _CN2_ATTO_DEPTHS  = (2, 2, 6,  2)
-const _CN2_ATTO_DIMS    = (40, 80, 160, 320)
-const _CN2_FEMTO_DEPTHS = (2, 2, 6,  2)
-const _CN2_FEMTO_DIMS   = (48, 96, 192, 384)
-const _CN2_PICO_DEPTHS  = (2, 2, 6,  2)
-const _CN2_PICO_DIMS    = (64, 128, 256, 512)
-const _CN2_NANO_DEPTHS  = (2, 2, 8,  2)
-const _CN2_NANO_DIMS    = (80, 160, 320, 640)
-const _CN2_TINY_DEPTHS  = (3, 3, 9,  3)
-const _CN2_TINY_DIMS    = (96, 192, 384, 768)
-const _CN2_BASE_DEPTHS  = (3, 3, 27, 3)
-const _CN2_BASE_DIMS    = (128, 256, 512, 1024)
+const _CN2_ATTO_DEPTHS = (2, 2, 6, 2)
+const _CN2_ATTO_DIMS = (40, 80, 160, 320)
+const _CN2_FEMTO_DEPTHS = (2, 2, 6, 2)
+const _CN2_FEMTO_DIMS = (48, 96, 192, 384)
+const _CN2_PICO_DEPTHS = (2, 2, 6, 2)
+const _CN2_PICO_DIMS = (64, 128, 256, 512)
+const _CN2_NANO_DEPTHS = (2, 2, 8, 2)
+const _CN2_NANO_DIMS = (80, 160, 320, 640)
+const _CN2_TINY_DEPTHS = (3, 3, 9, 3)
+const _CN2_TINY_DIMS = (96, 192, 384, 768)
+const _CN2_BASE_DEPTHS = (3, 3, 27, 3)
+const _CN2_BASE_DIMS = (128, 256, 512, 1024)
 const _CN2_LARGE_DEPTHS = (3, 3, 27, 3)
-const _CN2_LARGE_DIMS   = (192, 384, 768, 1536)
-const _CN2_HUGE_DEPTHS  = (3, 3, 27, 3)
-const _CN2_HUGE_DIMS    = (352, 704, 1408, 2816)
+const _CN2_LARGE_DIMS = (192, 384, 768, 1536)
+const _CN2_HUGE_DEPTHS = (3, 3, 27, 3)
+const _CN2_HUGE_DIMS = (352, 704, 1408, 2816)
 
 """
     CONVNEXTV2_VARIANTS :: Dict{Symbol, ConvNeXtV2Variant}
@@ -72,99 +72,229 @@ encoder (`default_num_classes = 0`); all other rows ship a 1000-class head.
 The `_384` and `_512` suffixes denote the native training resolution of the
 released weights.
 """
-const CONVNEXTV2_VARIANTS = Dict{Symbol, ConvNeXtV2Variant}(
+const CONVNEXTV2_VARIANTS = Dict{Symbol,ConvNeXtV2Variant}(
     # atto
     :convnextv2_atto_fcmae => ConvNeXtV2Variant(
-        :convnextv2_atto_fcmae, _CN2_ATTO_DEPTHS, _CN2_ATTO_DIMS,
-        "timm/convnextv2_atto.fcmae", 0, 224),
+        :convnextv2_atto_fcmae,
+        _CN2_ATTO_DEPTHS,
+        _CN2_ATTO_DIMS,
+        "timm/convnextv2_atto.fcmae",
+        0,
+        224,
+    ),
     :convnextv2_atto_fcmae_ft_in1k => ConvNeXtV2Variant(
-        :convnextv2_atto_fcmae_ft_in1k, _CN2_ATTO_DEPTHS, _CN2_ATTO_DIMS,
-        "timm/convnextv2_atto.fcmae_ft_in1k", 1000, 224),
+        :convnextv2_atto_fcmae_ft_in1k,
+        _CN2_ATTO_DEPTHS,
+        _CN2_ATTO_DIMS,
+        "timm/convnextv2_atto.fcmae_ft_in1k",
+        1000,
+        224,
+    ),
 
     # femto
     :convnextv2_femto_fcmae => ConvNeXtV2Variant(
-        :convnextv2_femto_fcmae, _CN2_FEMTO_DEPTHS, _CN2_FEMTO_DIMS,
-        "timm/convnextv2_femto.fcmae", 0, 224),
+        :convnextv2_femto_fcmae,
+        _CN2_FEMTO_DEPTHS,
+        _CN2_FEMTO_DIMS,
+        "timm/convnextv2_femto.fcmae",
+        0,
+        224,
+    ),
     :convnextv2_femto_fcmae_ft_in1k => ConvNeXtV2Variant(
-        :convnextv2_femto_fcmae_ft_in1k, _CN2_FEMTO_DEPTHS, _CN2_FEMTO_DIMS,
-        "timm/convnextv2_femto.fcmae_ft_in1k", 1000, 224),
+        :convnextv2_femto_fcmae_ft_in1k,
+        _CN2_FEMTO_DEPTHS,
+        _CN2_FEMTO_DIMS,
+        "timm/convnextv2_femto.fcmae_ft_in1k",
+        1000,
+        224,
+    ),
 
     # pico
     :convnextv2_pico_fcmae => ConvNeXtV2Variant(
-        :convnextv2_pico_fcmae, _CN2_PICO_DEPTHS, _CN2_PICO_DIMS,
-        "timm/convnextv2_pico.fcmae", 0, 224),
+        :convnextv2_pico_fcmae,
+        _CN2_PICO_DEPTHS,
+        _CN2_PICO_DIMS,
+        "timm/convnextv2_pico.fcmae",
+        0,
+        224,
+    ),
     :convnextv2_pico_fcmae_ft_in1k => ConvNeXtV2Variant(
-        :convnextv2_pico_fcmae_ft_in1k, _CN2_PICO_DEPTHS, _CN2_PICO_DIMS,
-        "timm/convnextv2_pico.fcmae_ft_in1k", 1000, 224),
+        :convnextv2_pico_fcmae_ft_in1k,
+        _CN2_PICO_DEPTHS,
+        _CN2_PICO_DIMS,
+        "timm/convnextv2_pico.fcmae_ft_in1k",
+        1000,
+        224,
+    ),
 
     # nano
     :convnextv2_nano_fcmae => ConvNeXtV2Variant(
-        :convnextv2_nano_fcmae, _CN2_NANO_DEPTHS, _CN2_NANO_DIMS,
-        "timm/convnextv2_nano.fcmae", 0, 224),
+        :convnextv2_nano_fcmae,
+        _CN2_NANO_DEPTHS,
+        _CN2_NANO_DIMS,
+        "timm/convnextv2_nano.fcmae",
+        0,
+        224,
+    ),
     :convnextv2_nano_fcmae_ft_in1k => ConvNeXtV2Variant(
-        :convnextv2_nano_fcmae_ft_in1k, _CN2_NANO_DEPTHS, _CN2_NANO_DIMS,
-        "timm/convnextv2_nano.fcmae_ft_in1k", 1000, 224),
+        :convnextv2_nano_fcmae_ft_in1k,
+        _CN2_NANO_DEPTHS,
+        _CN2_NANO_DIMS,
+        "timm/convnextv2_nano.fcmae_ft_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_nano_fcmae_ft_in22k_in1k => ConvNeXtV2Variant(
-        :convnextv2_nano_fcmae_ft_in22k_in1k, _CN2_NANO_DEPTHS, _CN2_NANO_DIMS,
-        "timm/convnextv2_nano.fcmae_ft_in22k_in1k", 1000, 224),
+        :convnextv2_nano_fcmae_ft_in22k_in1k,
+        _CN2_NANO_DEPTHS,
+        _CN2_NANO_DIMS,
+        "timm/convnextv2_nano.fcmae_ft_in22k_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_nano_fcmae_ft_in22k_in1k_384 => ConvNeXtV2Variant(
-        :convnextv2_nano_fcmae_ft_in22k_in1k_384, _CN2_NANO_DEPTHS, _CN2_NANO_DIMS,
-        "timm/convnextv2_nano.fcmae_ft_in22k_in1k_384", 1000, 384),
+        :convnextv2_nano_fcmae_ft_in22k_in1k_384,
+        _CN2_NANO_DEPTHS,
+        _CN2_NANO_DIMS,
+        "timm/convnextv2_nano.fcmae_ft_in22k_in1k_384",
+        1000,
+        384,
+    ),
 
     # tiny
     :convnextv2_tiny_fcmae => ConvNeXtV2Variant(
-        :convnextv2_tiny_fcmae, _CN2_TINY_DEPTHS, _CN2_TINY_DIMS,
-        "timm/convnextv2_tiny.fcmae", 0, 224),
+        :convnextv2_tiny_fcmae,
+        _CN2_TINY_DEPTHS,
+        _CN2_TINY_DIMS,
+        "timm/convnextv2_tiny.fcmae",
+        0,
+        224,
+    ),
     :convnextv2_tiny_fcmae_ft_in1k => ConvNeXtV2Variant(
-        :convnextv2_tiny_fcmae_ft_in1k, _CN2_TINY_DEPTHS, _CN2_TINY_DIMS,
-        "timm/convnextv2_tiny.fcmae_ft_in1k", 1000, 224),
+        :convnextv2_tiny_fcmae_ft_in1k,
+        _CN2_TINY_DEPTHS,
+        _CN2_TINY_DIMS,
+        "timm/convnextv2_tiny.fcmae_ft_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_tiny_fcmae_ft_in22k_in1k => ConvNeXtV2Variant(
-        :convnextv2_tiny_fcmae_ft_in22k_in1k, _CN2_TINY_DEPTHS, _CN2_TINY_DIMS,
-        "timm/convnextv2_tiny.fcmae_ft_in22k_in1k", 1000, 224),
+        :convnextv2_tiny_fcmae_ft_in22k_in1k,
+        _CN2_TINY_DEPTHS,
+        _CN2_TINY_DIMS,
+        "timm/convnextv2_tiny.fcmae_ft_in22k_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_tiny_fcmae_ft_in22k_in1k_384 => ConvNeXtV2Variant(
-        :convnextv2_tiny_fcmae_ft_in22k_in1k_384, _CN2_TINY_DEPTHS, _CN2_TINY_DIMS,
-        "timm/convnextv2_tiny.fcmae_ft_in22k_in1k_384", 1000, 384),
+        :convnextv2_tiny_fcmae_ft_in22k_in1k_384,
+        _CN2_TINY_DEPTHS,
+        _CN2_TINY_DIMS,
+        "timm/convnextv2_tiny.fcmae_ft_in22k_in1k_384",
+        1000,
+        384,
+    ),
 
     # base
     :convnextv2_base_fcmae => ConvNeXtV2Variant(
-        :convnextv2_base_fcmae, _CN2_BASE_DEPTHS, _CN2_BASE_DIMS,
-        "timm/convnextv2_base.fcmae", 0, 224),
+        :convnextv2_base_fcmae,
+        _CN2_BASE_DEPTHS,
+        _CN2_BASE_DIMS,
+        "timm/convnextv2_base.fcmae",
+        0,
+        224,
+    ),
     :convnextv2_base_fcmae_ft_in1k => ConvNeXtV2Variant(
-        :convnextv2_base_fcmae_ft_in1k, _CN2_BASE_DEPTHS, _CN2_BASE_DIMS,
-        "timm/convnextv2_base.fcmae_ft_in1k", 1000, 224),
+        :convnextv2_base_fcmae_ft_in1k,
+        _CN2_BASE_DEPTHS,
+        _CN2_BASE_DIMS,
+        "timm/convnextv2_base.fcmae_ft_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_base_fcmae_ft_in22k_in1k => ConvNeXtV2Variant(
-        :convnextv2_base_fcmae_ft_in22k_in1k, _CN2_BASE_DEPTHS, _CN2_BASE_DIMS,
-        "timm/convnextv2_base.fcmae_ft_in22k_in1k", 1000, 224),
+        :convnextv2_base_fcmae_ft_in22k_in1k,
+        _CN2_BASE_DEPTHS,
+        _CN2_BASE_DIMS,
+        "timm/convnextv2_base.fcmae_ft_in22k_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_base_fcmae_ft_in22k_in1k_384 => ConvNeXtV2Variant(
-        :convnextv2_base_fcmae_ft_in22k_in1k_384, _CN2_BASE_DEPTHS, _CN2_BASE_DIMS,
-        "timm/convnextv2_base.fcmae_ft_in22k_in1k_384", 1000, 384),
+        :convnextv2_base_fcmae_ft_in22k_in1k_384,
+        _CN2_BASE_DEPTHS,
+        _CN2_BASE_DIMS,
+        "timm/convnextv2_base.fcmae_ft_in22k_in1k_384",
+        1000,
+        384,
+    ),
 
     # large
     :convnextv2_large_fcmae => ConvNeXtV2Variant(
-        :convnextv2_large_fcmae, _CN2_LARGE_DEPTHS, _CN2_LARGE_DIMS,
-        "timm/convnextv2_large.fcmae", 0, 224),
+        :convnextv2_large_fcmae,
+        _CN2_LARGE_DEPTHS,
+        _CN2_LARGE_DIMS,
+        "timm/convnextv2_large.fcmae",
+        0,
+        224,
+    ),
     :convnextv2_large_fcmae_ft_in1k => ConvNeXtV2Variant(
-        :convnextv2_large_fcmae_ft_in1k, _CN2_LARGE_DEPTHS, _CN2_LARGE_DIMS,
-        "timm/convnextv2_large.fcmae_ft_in1k", 1000, 224),
+        :convnextv2_large_fcmae_ft_in1k,
+        _CN2_LARGE_DEPTHS,
+        _CN2_LARGE_DIMS,
+        "timm/convnextv2_large.fcmae_ft_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_large_fcmae_ft_in22k_in1k => ConvNeXtV2Variant(
-        :convnextv2_large_fcmae_ft_in22k_in1k, _CN2_LARGE_DEPTHS, _CN2_LARGE_DIMS,
-        "timm/convnextv2_large.fcmae_ft_in22k_in1k", 1000, 224),
+        :convnextv2_large_fcmae_ft_in22k_in1k,
+        _CN2_LARGE_DEPTHS,
+        _CN2_LARGE_DIMS,
+        "timm/convnextv2_large.fcmae_ft_in22k_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_large_fcmae_ft_in22k_in1k_384 => ConvNeXtV2Variant(
-        :convnextv2_large_fcmae_ft_in22k_in1k_384, _CN2_LARGE_DEPTHS, _CN2_LARGE_DIMS,
-        "timm/convnextv2_large.fcmae_ft_in22k_in1k_384", 1000, 384),
+        :convnextv2_large_fcmae_ft_in22k_in1k_384,
+        _CN2_LARGE_DEPTHS,
+        _CN2_LARGE_DIMS,
+        "timm/convnextv2_large.fcmae_ft_in22k_in1k_384",
+        1000,
+        384,
+    ),
 
     # huge (no 224 in22k_in1k variant in timm; the in22k chain only ships at
     # 384 and 512).
     :convnextv2_huge_fcmae => ConvNeXtV2Variant(
-        :convnextv2_huge_fcmae, _CN2_HUGE_DEPTHS, _CN2_HUGE_DIMS,
-        "timm/convnextv2_huge.fcmae", 0, 224),
+        :convnextv2_huge_fcmae,
+        _CN2_HUGE_DEPTHS,
+        _CN2_HUGE_DIMS,
+        "timm/convnextv2_huge.fcmae",
+        0,
+        224,
+    ),
     :convnextv2_huge_fcmae_ft_in1k => ConvNeXtV2Variant(
-        :convnextv2_huge_fcmae_ft_in1k, _CN2_HUGE_DEPTHS, _CN2_HUGE_DIMS,
-        "timm/convnextv2_huge.fcmae_ft_in1k", 1000, 224),
+        :convnextv2_huge_fcmae_ft_in1k,
+        _CN2_HUGE_DEPTHS,
+        _CN2_HUGE_DIMS,
+        "timm/convnextv2_huge.fcmae_ft_in1k",
+        1000,
+        224,
+    ),
     :convnextv2_huge_fcmae_ft_in22k_in1k_384 => ConvNeXtV2Variant(
-        :convnextv2_huge_fcmae_ft_in22k_in1k_384, _CN2_HUGE_DEPTHS, _CN2_HUGE_DIMS,
-        "timm/convnextv2_huge.fcmae_ft_in22k_in1k_384", 1000, 384),
+        :convnextv2_huge_fcmae_ft_in22k_in1k_384,
+        _CN2_HUGE_DEPTHS,
+        _CN2_HUGE_DIMS,
+        "timm/convnextv2_huge.fcmae_ft_in22k_in1k_384",
+        1000,
+        384,
+    ),
     :convnextv2_huge_fcmae_ft_in22k_in1k_512 => ConvNeXtV2Variant(
-        :convnextv2_huge_fcmae_ft_in22k_in1k_512, _CN2_HUGE_DEPTHS, _CN2_HUGE_DIMS,
-        "timm/convnextv2_huge.fcmae_ft_in22k_in1k_512", 1000, 512),
+        :convnextv2_huge_fcmae_ft_in22k_in1k_512,
+        _CN2_HUGE_DEPTHS,
+        _CN2_HUGE_DIMS,
+        "timm/convnextv2_huge.fcmae_ft_in22k_in1k_512",
+        1000,
+        512,
+    ),
 )

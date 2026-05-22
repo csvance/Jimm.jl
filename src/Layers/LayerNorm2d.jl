@@ -24,6 +24,6 @@ PyTorch state-dict entries `<prefix>.weight` and `<prefix>.bias` are stored
 as `(C,)` and must be reshaped to `(1, 1, C, 1)` when loading (see
 `Jimm.Interop.as_channel4d`).
 """
-function layernorm2d(C::Int; eps::Float32 = 1f-6)
+function layernorm2d(C::Int; eps::Float32 = 1.0f-6)
     return Lux.LayerNorm((1, 1, C); dims = 3, epsilon = eps)
 end

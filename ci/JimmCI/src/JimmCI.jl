@@ -51,7 +51,7 @@ end
 
 function _parse_args(argv::AbstractVector)
     dry_run = false
-    master  = false
+    master = false
     sha::Union{String,Nothing} = nothing
     skip_pending = false
     help = false
@@ -71,7 +71,7 @@ function _parse_args(argv::AbstractVector)
             i <= length(argv) || error("--sha requires a value")
             sha = argv[i]
         elseif startswith(a, "--sha=")
-            sha = a[(length("--sha=") + 1):end]
+            sha = a[(length("--sha=")+1):end]
         else
             error("unknown argument: $a")
         end
@@ -90,22 +90,36 @@ function _print_jobs(jobs::Vector{Job})
     for j in jobs
         scope = j.full_sweep ? "full-sweep" : "representative"
         pr_part = j.kind == Jobs.PR_JOB ? " pr=#$(j.pr_number)" : ""
-        println("$(j.label): sha=$(first(j.head_sha, 12)) " *
-                "families=$(join(j.families, ",")) scope=$(scope)$(pr_part)")
+        println(
+            "$(j.label): sha=$(first(j.head_sha, 12)) " *
+            "families=$(join(j.families, ",")) scope=$(scope)$(pr_part)",
+        )
     end
 end
 
 function _explicit_job(gh::GitHubApp, cfg::Config, args::CliArgs)
     if args.master
         sha = get_default_branch_head(gh, repo_fullname(cfg), "master")
-        return Job(sha, sha, collect(ALL_FAMILIES), true,
-                   "master@$(first(sha, 8)) (manual)", Jobs.MASTER_JOB)
+        return Job(
+            sha,
+            sha,
+            collect(ALL_FAMILIES),
+            true,
+            "master@$(first(sha, 8)) (manual)",
+            Jobs.MASTER_JOB,
+        )
     end
     if args.sha !== nothing
         s = lowercase(args.sha)
         length(s) < 7 && error("--sha $(repr(args.sha)) is too short")
-        return Job(s, s, collect(ALL_FAMILIES), true,
-                   "$(first(s, 8)) (manual)", Jobs.MASTER_JOB)
+        return Job(
+            s,
+            s,
+            collect(ALL_FAMILIES),
+            true,
+            "$(first(s, 8)) (manual)",
+            Jobs.MASTER_JOB,
+        )
     end
     return nothing
 end
@@ -124,8 +138,7 @@ function _skip_pending(cfg::Config, gh::GitHubApp)
     end
     for j in master_jobs
         println("skipping $(first(j.head_sha, 12)): $(join(j.families, ","))")
-        mark_skipped(gh, repo_fullname(cfg), j.head_sha, j.families;
-                     source = :skip)
+        mark_skipped(gh, repo_fullname(cfg), j.head_sha, j.families; source = :skip)
     end
 end
 
@@ -145,7 +158,8 @@ function cli_main(argv::AbstractVector = ARGS)
     end
 
     _logfile = open("jimm-ci.log", "a")
-    min_level = get(ENV, "JIMM_CI_LOG_LEVEL", "INFO") == "DEBUG" ? Logging.Debug : Logging.Info
+    min_level =
+        get(ENV, "JIMM_CI_LOG_LEVEL", "INFO") == "DEBUG" ? Logging.Debug : Logging.Info
     Logging.global_logger(ConsoleLogger(_logfile, min_level))
     @info "jimm-ci starting" time=now(UTC)
 
@@ -155,7 +169,7 @@ function cli_main(argv::AbstractVector = ARGS)
         println(stderr, "jimm-ci: ", sprint(showerror, e))
         exit(2)
     end
-    gh  = GitHubApp(cfg.app_id, cfg.installation_id, cfg.private_key)
+    gh = GitHubApp(cfg.app_id, cfg.installation_id, cfg.private_key)
 
     if args.skip_pending
         _skip_pending(cfg, gh)

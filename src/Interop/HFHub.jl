@@ -98,13 +98,15 @@ path if present; otherwise the original error is rethrown.
 Set `repo_type="dataset"` for dataset repos; default `"model"` matches
 `timm`'s usage.
 """
-function hf_hub_download(repo_id::AbstractString, filename::AbstractString;
-        revision::AbstractString = "main",
-        cache_dir::AbstractString = hf_hub_cache_dir(),
-        repo_type::AbstractString = "model")
+function hf_hub_download(
+    repo_id::AbstractString,
+    filename::AbstractString;
+    revision::AbstractString = "main",
+    cache_dir::AbstractString = hf_hub_cache_dir(),
+    repo_type::AbstractString = "model",
+)
     repo_prefix = repo_type == "model" ? "models" : repo_type * "s"
-    repo_dir = joinpath(cache_dir,
-                        repo_prefix * "--" * replace(repo_id, "/" => "--"))
+    repo_dir = joinpath(cache_dir, repo_prefix * "--" * replace(repo_id, "/" => "--"))
     refs_path = joinpath(repo_dir, "refs", revision)
     url = "https://huggingface.co/$(repo_id)/resolve/$(revision)/$(filename)"
 
@@ -114,8 +116,8 @@ function hf_hub_download(repo_id::AbstractString, filename::AbstractString;
         # Offline fallback: trust the previously-recorded commit if any.
         if isfile(refs_path)
             cached_commit = strip(read(refs_path, String))
-            cached_path = joinpath(repo_dir, "snapshots",
-                                    String(cached_commit), filename)
+            cached_path =
+                joinpath(repo_dir, "snapshots", String(cached_commit), filename)
             isfile(cached_path) && return cached_path
         end
         rethrow()
@@ -165,7 +167,7 @@ end
 # -- helpers ------------------------------------------------------------
 
 function _hf_headers()
-    headers = Pair{String, String}[]
+    headers = Pair{String,String}[]
     token = get(ENV, "HUGGING_FACE_HUB_TOKEN", "")
     isempty(token) || push!(headers, "Authorization" => "Bearer $token")
     return headers
@@ -178,9 +180,13 @@ end
 function _hf_head_metadata(url::AbstractString)
     dl = Downloads.Downloader()
     dl.easy_hook = (easy, info) -> setopt(easy, CURLOPT_FOLLOWLOCATION, 0)
-    resp = Downloads.request(url; method = "HEAD",
-                              headers = _hf_headers(),
-                              downloader = dl, throw = false)
+    resp = Downloads.request(
+        url;
+        method = "HEAD",
+        headers = _hf_headers(),
+        downloader = dl,
+        throw = false,
+    )
     if !(200 <= resp.status < 400)
         error("HEAD $url returned status $(resp.status)")
     end
@@ -197,8 +203,10 @@ function _hf_head_metadata(url::AbstractString)
     blob_id = !isempty(linked_etag) ? linked_etag : etag
     blob_id = strip(blob_id, ('"', ' '))
     if isempty(commit_sha) || isempty(blob_id)
-        error("HEAD $url did not return commit/etag headers " *
-              "(commit=$(commit_sha), etag=$(blob_id))")
+        error(
+            "HEAD $url did not return commit/etag headers " *
+            "(commit=$(commit_sha), etag=$(blob_id))",
+        )
     end
     return (String(commit_sha), String(blob_id))
 end
