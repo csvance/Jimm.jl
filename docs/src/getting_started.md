@@ -11,11 +11,12 @@ the HuggingFace cache layout.
 
 ## Installation
 
-Jimm targets Julia 1.12 or newer.
+Jimm targets Julia 1.12 or newer and is registered in the Julia
+General registry, so it installs with `Pkg.add` directly:
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/csvance/Jimm.jl")
+Pkg.add("Jimm")
 ```
 
 For local hacking, clone the repo and `Pkg.develop` the path:
