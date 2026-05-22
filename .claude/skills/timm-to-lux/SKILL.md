@@ -198,6 +198,8 @@ The verification loop is layered. Run the cheap gates between every meaningful e
 
 End-to-end first, against the fixture's `state_dict` (not the HF download) so the test isolates the forward pass:
 
+Logits (`num_classes > 0`): absolute max-abs-diff under `LOGITS_ATOL`.
+
 ```julia
 data = read_parity(_FIXTURE_PATH)
 model = resnet(:resnet50; in_chans = 3)
@@ -206,7 +208,21 @@ ps, st = Lux.setup(rng, model)
 st = Lux.testmode(st)
 ps = apply_state_dict(ps, data.state_dict, resnet50_mapping(data.state_dict))
 y, _ = model(data.input, ps, st)
-@test isapprox(y, data.output["final"]; rtol = 1f-3, atol = 1f-4)
+diff = maximum(abs.(y .- data.output["logits"]))
+@test diff < 1f-3  # LOGITS_ATOL
+```
+
+Features (`num_classes = 0`): relative bar — absolute diff divided by the max absolute value of the timm reference. This keeps the check scale-free across tiny-through-huge variants whose raw pre-norm activations span very different magnitudes.
+
+```julia
+model_f = resnet(:resnet50; in_chans = 3, num_classes = 0)
+ps_f, st_f = Lux.setup(rng, model_f)
+st_f = Lux.testmode(st_f)
+ps_f = apply_state_dict(ps_f, data.state_dict, resnet50_mapping(data.state_dict))
+y_f, _ = model_f(data.input, ps_f, st_f)
+diff = maximum(abs.(y_f .- data.output["features"]))
+rel  = diff / max(maximum(abs.(data.output["features"])), eps(Float32))
+@test rel < 1f-4  # FEATURES_RTOL
 ```
 
 When it fails, the per-stage and per-block fixtures earn their keep. Walk the forward by hand:

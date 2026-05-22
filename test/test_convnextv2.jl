@@ -7,7 +7,7 @@
 #   2. Downloads the variant's model.safetensors from HuggingFace (cached on
 #      disk so reruns are fast and offline).
 #   3. Builds the Jimm model, applies the weights, and asserts max-abs-diff
-#      against the timm reference is under `TOL`.
+#      against the timm reference is under `LOGITS_ATOL`.
 #
 # Skipped if the fixture file is missing or HF_OFFLINE=1 is set (so CI without
 # network or fixtures can still pass the rest of the suite).
@@ -18,13 +18,7 @@ using Lux
 using Random
 
 isdefined(@__MODULE__, :variant_filter) || include("_filter.jl")
-
-const TOL = 1f-3
-# Features parity uses a relative bar: max-abs diff divided by max-abs of the
-# timm reference. Deep backbones accumulate FP32 rounding through many stages,
-# inflating raw pre-norm feature diffs even when downstream logits stay tight,
-# so an absolute ceiling there gives false negatives.
-const FEATURES_RTOL = 1f-3
+isdefined(@__MODULE__, :LOGITS_ATOL) || include("_parity_tol.jl")
 
 # Variant keys mirror the timm model name with the dot rewritten as an
 # underscore; must match CONVNEXTV2_VARIANTS keys and the sidecar's
@@ -138,7 +132,7 @@ convnextv2_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
                     @test size(y) == size(expected_logits)
                     diff = maximum(abs.(y .- expected_logits))
                     @info "$(variant) logits max-abs-diff = $diff"
-                    @test diff < TOL
+                    @test diff < LOGITS_ATOL
                 end
             end
 
