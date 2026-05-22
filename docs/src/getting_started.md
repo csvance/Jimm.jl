@@ -188,10 +188,10 @@ resolved snapshot path directly and mirrors the cache semantics of
 `huggingface_hub.hf_hub_download`:
 
 ```julia
-path = Jimm.Interop.hf_hub_download("timm/resnet50.a1_in1k",
-                                    "model.safetensors";
-                                    revision = "main")
-state_dict = Jimm.Interop.load_safetensors_state_dict(path)
+path = hf_hub_download("timm/resnet50.a1_in1k",
+                       "model.safetensors";
+                       revision = "main")
+state_dict = load_safetensors_state_dict(path)
 ```
 
 This is the escape hatch for cases where you want to inspect or
