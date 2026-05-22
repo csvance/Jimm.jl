@@ -57,15 +57,6 @@ feature-extractor mode (`num_classes = 0`), single-channel inputs
 (`in_chans = 1`), and the HuggingFace cache layout, see the
 [Getting Started][docs-getting-started] docs page.
 
-## Documentation
-
-The full documentation is at [csvance.github.io/Jimm.jl][docs]:
-
-- [Getting Started][docs-getting-started]: end-to-end usage examples.
-- [Porting Backbones][docs-porting]: contributor guide for adding a new `timm` backbone.
-- [Testing][docs-testing]: parity test suite layout, env-var filters, and fixture dumping.
-- [API Reference][docs-api]: every exported function and type.
-
 ## License and attribution
 
 Jimm.jl is licensed under the Apache License, Version 2.0 (see
@@ -89,14 +80,6 @@ me to work on and open-source the project.
 [lux]: https://lux.csail.mit.edu/
 
 [docs]: https://csvance.github.io/Jimm.jl/
-
-[docs-getting-started]: https://csvance.github.io/Jimm.jl/getting_started/
-
-[docs-porting]: https://csvance.github.io/Jimm.jl/porting/
-
-[docs-testing]: https://csvance.github.io/Jimm.jl/testing/
-
-[docs-api]: https://csvance.github.io/Jimm.jl/api/
 
 [medicalmetrics]: https://medicalmetrics.com/
 
