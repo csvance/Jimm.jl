@@ -42,6 +42,7 @@ using Jimm, Lux, Random
 model, load = create_pretrained(:resnet50_a1_in1k)
 ps, st = Lux.setup(Xoshiro(0), model)
 ps, st = load(ps, st)
+st = Lux.testmode(st)
 
 x = randn(Float32, 224, 224, 3, 1)
 logits, _ = model(x, ps, st)              # (1000, 1)
@@ -64,7 +65,10 @@ A few things worth noting in the snippet:
   NamedTuple. The closure returns a new `(ps, st)` with the
   HuggingFace weights merged in. Stateless families (BiT, ConvNeXt,
   ConvNeXtV2) return `st` unchanged; ResNet merges BatchNorm running
-  statistics into `st`.
+  statistics into `st`. Call `Lux.testmode(st)` before inference so
+  BatchNorm uses those running statistics instead of the current
+  batch's statistics; for the stateless families it is a no-op but
+  still a safe default.
 - The input is shaped `(W, H, C, N)`, Lux's convention. PyTorch's
   `(N, C, H, W)` is read-reversed at load time so most weights land
   in the layout Lux expects directly.
@@ -91,6 +95,7 @@ post-stage feature map back instead of logits. This matches
 model, load = create_pretrained(:resnet50_a1_in1k; num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
 ps, st = load(ps, st)
+st = Lux.testmode(st)
 
 x = randn(Float32, 224, 224, 3, 1)
 features, _ = model(x, ps, st)            # (7, 7, 2048, 1)
