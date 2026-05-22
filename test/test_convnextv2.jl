@@ -20,47 +20,12 @@ using Random
 isdefined(@__MODULE__, :variant_filter) || include("_filter.jl")
 isdefined(@__MODULE__, :run_variant_parity) || include("_parity_helpers.jl")
 
-# Variant keys mirror the timm model name with the dot rewritten as an
-# underscore; must match CONVNEXTV2_VARIANTS keys and the sidecar's
-# CONVNEXTV2_VARIANTS_FULL keys. Each entry is gated on its fixture file
-# existing under data/parity/, so machines without the full set of dumps
-# simply skip the missing variants.
-const VARIANTS_TO_TEST = (
-    # atto
-    :convnextv2_atto_fcmae,
-    :convnextv2_atto_fcmae_ft_in1k,
-    # femto
-    :convnextv2_femto_fcmae,
-    :convnextv2_femto_fcmae_ft_in1k,
-    # pico
-    :convnextv2_pico_fcmae,
-    :convnextv2_pico_fcmae_ft_in1k,
-    # nano
-    :convnextv2_nano_fcmae,
-    :convnextv2_nano_fcmae_ft_in1k,
-    :convnextv2_nano_fcmae_ft_in22k_in1k,
-    :convnextv2_nano_fcmae_ft_in22k_in1k_384,
-    # tiny
-    :convnextv2_tiny_fcmae,
-    :convnextv2_tiny_fcmae_ft_in1k,
-    :convnextv2_tiny_fcmae_ft_in22k_in1k,
-    :convnextv2_tiny_fcmae_ft_in22k_in1k_384,
-    # base
-    :convnextv2_base_fcmae,
-    :convnextv2_base_fcmae_ft_in1k,
-    :convnextv2_base_fcmae_ft_in22k_in1k,
-    :convnextv2_base_fcmae_ft_in22k_in1k_384,
-    # large
-    :convnextv2_large_fcmae,
-    :convnextv2_large_fcmae_ft_in1k,
-    :convnextv2_large_fcmae_ft_in22k_in1k,
-    :convnextv2_large_fcmae_ft_in22k_in1k_384,
-    # huge
-    :convnextv2_huge_fcmae,
-    :convnextv2_huge_fcmae_ft_in1k,
-    :convnextv2_huge_fcmae_ft_in22k_in1k_384,
-    :convnextv2_huge_fcmae_ft_in22k_in1k_512,
-)
+# Test every registered ConvNeXtV2 variant. Each entry is gated on its
+# fixture file existing under data/parity/, so machines without the full
+# set of dumps simply skip the missing variants. Deriving the list from
+# CONVNEXTV2_VARIANTS keeps it in sync as new variants land in
+# src/Models/ConvNeXtV2/Config.jl without a second edit here.
+const VARIANTS_TO_TEST = Tuple(sort(collect(keys(Jimm.CONVNEXTV2_VARIANTS))))
 
 @testset "ConvNeXtV2 parity" begin
     for variant in variant_filter(VARIANTS_TO_TEST)

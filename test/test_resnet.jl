@@ -8,13 +8,12 @@ using Random
 isdefined(@__MODULE__, :variant_filter) || include("_filter.jl")
 isdefined(@__MODULE__, :run_variant_parity) || include("_parity_helpers.jl")
 
-const RESNET_VARIANTS_TO_TEST = (
-    :resnet18_a1_in1k,
-    :resnet34_a1_in1k,
-    :resnet50_a1_in1k,
-    :resnet101_a1_in1k,
-    :resnet152_a1_in1k,
-)
+# Test every registered ResNet variant. Each entry is gated on its
+# fixture file existing under data/parity/, so machines without the full
+# set of dumps simply skip the missing variants. Deriving the list from
+# RESNET_VARIANTS keeps it in sync as new variants land in
+# src/Models/ResNet/Config.jl without a second edit here.
+const RESNET_VARIANTS_TO_TEST = Tuple(sort(collect(keys(Jimm.RESNET_VARIANTS))))
 
 @testset "ResNet parity" begin
     for variant in variant_filter(RESNET_VARIANTS_TO_TEST)

@@ -20,26 +20,12 @@ using Random
 isdefined(@__MODULE__, :variant_filter) || include("_filter.jl")
 isdefined(@__MODULE__, :run_variant_parity) || include("_parity_helpers.jl")
 
-# Variant keys mirror the timm model name with the dot rewritten as an
-# underscore; must match BIT_VARIANTS keys and the sidecar's
-# BIT_VARIANTS_FULL keys.
-const VARIANTS_TO_TEST = (
-    :resnetv2_50x1_bit_goog_in21k,
-    :resnetv2_50x3_bit_goog_in21k,
-    :resnetv2_101x1_bit_goog_in21k,
-    :resnetv2_101x3_bit_goog_in21k,
-    :resnetv2_152x2_bit_goog_in21k,
-    :resnetv2_152x4_bit_goog_in21k,
-    :resnetv2_50x1_bit_goog_distilled_in1k,
-    :resnetv2_50x1_bit_goog_in21k_ft_in1k,
-    :resnetv2_50x3_bit_goog_in21k_ft_in1k,
-    :resnetv2_101x1_bit_goog_in21k_ft_in1k,
-    :resnetv2_101x3_bit_goog_in21k_ft_in1k,
-    :resnetv2_152x2_bit_goog_in21k_ft_in1k,
-    :resnetv2_152x4_bit_goog_in21k_ft_in1k,
-    :resnetv2_152x2_bit_goog_teacher_in21k_ft_in1k,
-    :resnetv2_152x2_bit_goog_teacher_in21k_ft_in1k_384,
-)
+# Test every registered BiT variant. Each entry is gated on its fixture
+# file existing under data/parity/, so machines without the full set of
+# dumps simply skip the missing variants. Deriving the list from
+# BIT_VARIANTS keeps it in sync as new variants land in
+# src/Models/ResNetV2/Config.jl without a second edit here.
+const VARIANTS_TO_TEST = Tuple(sort(collect(keys(Jimm.BIT_VARIANTS))))
 
 @testset "BiT parity" begin
     for variant in variant_filter(VARIANTS_TO_TEST)
