@@ -44,7 +44,7 @@ function read_parity(path::AbstractString)
 end
 
 function _read_state_dict(g)
-    out = Dict{String, Array{Float32}}()
+    out = Dict{String,Array{Float32}}()
     for k in keys(g)
         out[k] = Float32.(read(g[k]))
     end
@@ -55,7 +55,7 @@ function _read_output(node)
     if node isa HDF5.Dataset
         return Float32.(read(node))
     elseif node isa HDF5.Group
-        out = Dict{String, Array{Float32}}()
+        out = Dict{String,Array{Float32}}()
         for k in keys(node)
             out[k] = Float32.(read(node[k]))
         end
@@ -81,7 +81,7 @@ an iterable of `(pytorch_key, lux_path, transform)` triples where:
 
 The original `ps` is not mutated; the caller must bind the return value.
 """
-function apply_state_dict(ps, state_dict::Dict{String, <:AbstractArray}, mapping)
+function apply_state_dict(ps, state_dict::Dict{String,<:AbstractArray}, mapping)
     out = ps
     for (pykey, lux_path, transform) in mapping
         haskey(state_dict, pykey) || error("missing PyTorch state_dict key: $pykey")
@@ -91,10 +91,9 @@ function apply_state_dict(ps, state_dict::Dict{String, <:AbstractArray}, mapping
     return out
 end
 
-function _set_leaf(nt::NamedTuple, path::NTuple{N, Symbol}, leaf) where {N}
+function _set_leaf(nt::NamedTuple, path::NTuple{N,Symbol}, leaf) where {N}
     head = path[1]
-    haskey(nt, head) || error(
-        "leaf path missing key: $head (have: $(propertynames(nt)))")
+    haskey(nt, head) || error("leaf path missing key: $head (have: $(propertynames(nt)))")
     if N == 1
         return merge(nt, (; head => leaf))
     else
@@ -103,8 +102,7 @@ function _set_leaf(nt::NamedTuple, path::NTuple{N, Symbol}, leaf) where {N}
     end
 end
 
-_set_leaf(nt::NamedTuple, path::Tuple, leaf) =
-    _set_leaf(nt, Tuple(Symbol.(path)), leaf)
+_set_leaf(nt::NamedTuple, path::Tuple, leaf) = _set_leaf(nt, Tuple(Symbol.(path)), leaf)
 _set_leaf(nt::NamedTuple, path::AbstractVector, leaf) =
     _set_leaf(nt, Tuple(Symbol.(path)), leaf)
 
@@ -166,24 +164,28 @@ weight entry when `in_chans != 3`.
 function adapt_input_conv(in_chans::Int)
     in_chans >= 1 || error("adapt_input_conv: in_chans must be ≥ 1, got $in_chans")
     return function (w::AbstractArray)
-        ndims(w) == 4 || error("adapt_input_conv expects a 4-D conv weight; " *
-                                "got ndims=$(ndims(w))")
+        ndims(w) == 4 ||
+            error("adapt_input_conv expects a 4-D conv weight; " * "got ndims=$(ndims(w))")
         w32 = Float32.(w)
         kW, kH, I, O = size(w32)
         if in_chans == I
             return w32
         elseif in_chans == 1
             if I > 3
-                I % 3 == 0 || error("adapt_input_conv: cannot collapse $I-channel " *
-                                     "stem weight to 1 channel: I % 3 must be 0")
+                I % 3 == 0 || error(
+                    "adapt_input_conv: cannot collapse $I-channel " *
+                    "stem weight to 1 channel: I % 3 must be 0",
+                )
                 grouped = reshape(w32, kW, kH, 3, I ÷ 3, O)
                 return dropdims(sum(grouped; dims = 3); dims = 3)
             else
                 return sum(w32; dims = 3)
             end
         else
-            I == 3 || error("adapt_input_conv: only supports adapting from I=3 to " *
-                             "in_chans=$in_chans; got I=$I")
+            I == 3 || error(
+                "adapt_input_conv: only supports adapting from I=3 to " *
+                "in_chans=$in_chans; got I=$I",
+            )
             n_repeat = cld(in_chans, 3)
             tiled = repeat(w32, 1, 1, n_repeat, 1)
             cropped = tiled[:, :, 1:in_chans, :]

@@ -2,12 +2,8 @@ module PathFilter
 
 export families_for_paths, ALL_FAMILIES, REPRESENTATIVE_VARIANT
 
-const _SHARED_PREFIXES = (
-    "src/Layers/",
-    "src/Interop/",
-    "src/Models/ConvNeXtCommon/",
-    "ci/",
-)
+const _SHARED_PREFIXES =
+    ("src/Layers/", "src/Interop/", "src/Models/ConvNeXtCommon/", "ci/")
 
 const _SHARED_EXACT = Set([
     "src/Jimm.jl",
@@ -22,19 +18,19 @@ const _SHARED_EXACT = Set([
 ])
 
 const _FAMILY_PREFIXES = Dict{String,Tuple{Vararg{String}}}(
-    "bit"        => ("src/Models/ResNetV2/",),
-    "resnet"     => ("src/Models/ResNet/",),
-    "convnext"   => ("src/Models/ConvNeXt/",),
+    "bit" => ("src/Models/ResNetV2/",),
+    "resnet" => ("src/Models/ResNet/",),
+    "convnext" => ("src/Models/ConvNeXt/",),
     "convnextv2" => ("src/Models/ConvNeXtV2/",),
-    "infra"      => (),
+    "infra" => (),
 )
 
 const _FAMILY_EXACT = Dict{String,Set{String}}(
-    "bit"        => Set(["test/test_bit_resnet.jl"]),
-    "resnet"     => Set(["test/test_resnet.jl"]),
-    "convnext"   => Set(["test/test_convnext.jl"]),
+    "bit" => Set(["test/test_bit_resnet.jl"]),
+    "resnet" => Set(["test/test_resnet.jl"]),
+    "convnext" => Set(["test/test_convnext.jl"]),
     "convnextv2" => Set(["test/test_convnextv2.jl"]),
-    "infra"      => Set([
+    "infra" => Set([
         "test/test_hf_download.jl",
         "test/test_hf_hub_download.jl",
         "test/test_init.jl",
@@ -44,10 +40,10 @@ const _FAMILY_EXACT = Dict{String,Set{String}}(
 const ALL_FAMILIES = ("infra", "bit", "resnet", "convnext", "convnextv2")
 
 const REPRESENTATIVE_VARIANT = Dict{String,String}(
-    "infra"      => "",
-    "bit"        => "resnetv2_50x1_bit_goog_in21k_ft_in1k",
-    "resnet"     => "resnet50_a1_in1k",
-    "convnext"   => "convnext_tiny_fb_in1k",
+    "infra" => "",
+    "bit" => "resnetv2_50x1_bit_goog_in21k_ft_in1k",
+    "resnet" => "resnet50_a1_in1k",
+    "convnext" => "convnext_tiny_fb_in1k",
     "convnextv2" => "convnextv2_atto_fcmae_ft_in1k",
 )
 

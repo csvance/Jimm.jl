@@ -34,8 +34,7 @@ const _BIT_HEAD_INIT = normal_init(; std = 0.01f0)
 # Shared backbone forward, called from both branches of `bit_resnetv2`.
 # Any future change to the backbone path (activation, padding, pool, etc.)
 # lives here so the feature-extractor and classifier branches can't desync.
-function _bit_resnetv2_features(x, stem_conv, stage1, stage2, stage3, stage4,
-                                 final_norm)
+function _bit_resnetv2_features(x, stem_conv, stage1, stage2, stage3, stage4, final_norm)
     x = stem_conv(x)
     # timm BiT pads with **zeros** before the maxpool (ConstantPad2d(value=0)),
     # then pools with no internal padding. NNlib's maxpool(pad=1) uses
@@ -65,11 +64,12 @@ When `num_classes > 0`, a `ClassifierHead`-style head is attached
 logits shaped `(num_classes, N)`, matching
 `timm.create_model(..., num_classes=num_classes).forward(x)`.
 """
-function bit_resnetv2(variant::Symbol;
-        in_chans::Int = 3, num_classes::Int = 0)
+function bit_resnetv2(variant::Symbol; in_chans::Int = 3, num_classes::Int = 0)
     cfg = get(BIT_VARIANTS, variant) do
-        error("Unknown BiT variant: $variant. Known variants: " *
-              "$(sort(collect(keys(BIT_VARIANTS))))")
+        error(
+            "Unknown BiT variant: $variant. Known variants: " *
+            "$(sort(collect(keys(BIT_VARIANTS))))",
+        )
     end
     depths = cfg.layers
     widths = cfg.stage_chs
@@ -78,36 +78,66 @@ function bit_resnetv2(variant::Symbol;
 
     if num_classes == 0
         @compact(
-            stem_conv = std_conv(7, 7, in_chans, stem_chs;
-                                  stride = 2, pad = 3,
-                                  init_weight = _BIT_CONV_INIT),
-            stage1 = resnet_stage(stem_chs,  widths[1], depths[1], strides[1]),
+            stem_conv = std_conv(
+                7,
+                7,
+                in_chans,
+                stem_chs;
+                stride = 2,
+                pad = 3,
+                init_weight = _BIT_CONV_INIT,
+            ),
+            stage1 = resnet_stage(stem_chs, widths[1], depths[1], strides[1]),
             stage2 = resnet_stage(widths[1], widths[2], depths[2], strides[2]),
             stage3 = resnet_stage(widths[2], widths[3], depths[3], strides[3]),
             stage4 = resnet_stage(widths[3], widths[4], depths[4], strides[4]),
             final_norm = gn_act(widths[4]),
         ) do x
-            @return _bit_resnetv2_features(x, stem_conv, stage1, stage2,
-                                            stage3, stage4, final_norm)
+            @return _bit_resnetv2_features(
+                x,
+                stem_conv,
+                stage1,
+                stage2,
+                stage3,
+                stage4,
+                final_norm,
+            )
         end
     else
         nc = num_classes
         @compact(
-            stem_conv = std_conv(7, 7, in_chans, stem_chs;
-                                  stride = 2, pad = 3,
-                                  init_weight = _BIT_CONV_INIT),
-            stage1 = resnet_stage(stem_chs,  widths[1], depths[1], strides[1]),
+            stem_conv = std_conv(
+                7,
+                7,
+                in_chans,
+                stem_chs;
+                stride = 2,
+                pad = 3,
+                init_weight = _BIT_CONV_INIT,
+            ),
+            stage1 = resnet_stage(stem_chs, widths[1], depths[1], strides[1]),
             stage2 = resnet_stage(widths[1], widths[2], depths[2], strides[2]),
             stage3 = resnet_stage(widths[2], widths[3], depths[3], strides[3]),
             stage4 = resnet_stage(widths[3], widths[4], depths[4], strides[4]),
             final_norm = gn_act(widths[4]),
-            head_fc = Conv((1, 1), widths[4] => nc;
-                           use_bias = true, cross_correlation = true,
-                           init_weight = _BIT_HEAD_INIT,
-                           init_bias = zeros32),
+            head_fc = Conv(
+                (1, 1),
+                widths[4] => nc;
+                use_bias = true,
+                cross_correlation = true,
+                init_weight = _BIT_HEAD_INIT,
+                init_bias = zeros32,
+            ),
         ) do x
-            x = _bit_resnetv2_features(x, stem_conv, stage1, stage2,
-                                        stage3, stage4, final_norm)
+            x = _bit_resnetv2_features(
+                x,
+                stem_conv,
+                stage1,
+                stage2,
+                stage3,
+                stage4,
+                final_norm,
+            )
             # timm's ClassifierHead(use_conv=True): global avg pool → 1×1 conv → flatten.
             # NNlib has no adaptive pool; compute the kernel from the actual spatial
             # extent so the path stays input-size-agnostic.
@@ -126,17 +156,14 @@ end
 GroupNorm(groups, C; affine=true) followed by ReLU.
 """
 function gn_act(C::Int; groups::Int = 32, eps::Float32 = 1.0f-5)
-    @compact(
-        gn = GroupNorm(C, groups; affine = true, epsilon = eps),
-    ) do x
+    @compact(gn = GroupNorm(C, groups; affine = true, epsilon = eps),) do x
         @return NNlib.relu.(gn(x))
     end
 end
 
 # -- preact_bottleneck ----------------------------------------------------
 
-function preact_bottleneck(in_ch::Int, out_ch::Int, stride::Int;
-                            downsample::Bool)
+function preact_bottleneck(in_ch::Int, out_ch::Int, stride::Int; downsample::Bool)
     mid = out_ch ÷ 4
 
     if downsample
@@ -144,12 +171,25 @@ function preact_bottleneck(in_ch::Int, out_ch::Int, stride::Int;
             norm1 = gn_act(in_ch),
             conv1 = std_conv(1, 1, in_ch, mid; init_weight = _BIT_CONV_INIT),
             norm2 = gn_act(mid),
-            conv2 = std_conv(3, 3, mid, mid; stride = stride, pad = 1,
-                              init_weight = _BIT_CONV_INIT),
+            conv2 = std_conv(
+                3,
+                3,
+                mid,
+                mid;
+                stride = stride,
+                pad = 1,
+                init_weight = _BIT_CONV_INIT,
+            ),
             norm3 = gn_act(mid),
             conv3 = std_conv(1, 1, mid, out_ch; init_weight = _BIT_CONV_INIT),
-            ds_conv = std_conv(1, 1, in_ch, out_ch; stride = stride,
-                                init_weight = _BIT_CONV_INIT),
+            ds_conv = std_conv(
+                1,
+                1,
+                in_ch,
+                out_ch;
+                stride = stride,
+                init_weight = _BIT_CONV_INIT,
+            ),
         ) do x
             x_pre = norm1(x)
             s = ds_conv(x_pre)
@@ -163,8 +203,15 @@ function preact_bottleneck(in_ch::Int, out_ch::Int, stride::Int;
             norm1 = gn_act(in_ch),
             conv1 = std_conv(1, 1, in_ch, mid; init_weight = _BIT_CONV_INIT),
             norm2 = gn_act(mid),
-            conv2 = std_conv(3, 3, mid, mid; stride = stride, pad = 1,
-                              init_weight = _BIT_CONV_INIT),
+            conv2 = std_conv(
+                3,
+                3,
+                mid,
+                mid;
+                stride = stride,
+                pad = 1,
+                init_weight = _BIT_CONV_INIT,
+            ),
             norm3 = gn_act(mid),
             conv3 = std_conv(1, 1, mid, out_ch; init_weight = _BIT_CONV_INIT),
         ) do x
@@ -182,7 +229,7 @@ end
 function resnet_stage(in_ch::Int, out_ch::Int, depth::Int, stride::Int)
     blocks = []
     push!(blocks, preact_bottleneck(in_ch, out_ch, stride; downsample = true))
-    for _ in 2:depth
+    for _ = 2:depth
         push!(blocks, preact_bottleneck(out_ch, out_ch, 1; downsample = false))
     end
     return Chain(blocks...)
@@ -206,57 +253,82 @@ Assumes the state dict was loaded with `load_safetensors_state_dict`
 deliver conv weights in `(kW, kH, in, out)` order, which is Lux's `Conv`
 layout, so the `identity` transform is correct for every leaf.
 """
-function bit_resnetv2_mapping(state_dict::Dict, variant::Symbol;
-        load_classifier::Bool = false,
-        in_chans::Int = 3,
-        prefix::Tuple{Vararg{Symbol}} = ())
+function bit_resnetv2_mapping(
+    state_dict::Dict,
+    variant::Symbol;
+    load_classifier::Bool = false,
+    in_chans::Int = 3,
+    prefix::Tuple{Vararg{Symbol}} = (),
+)
     cfg = get(BIT_VARIANTS, variant) do
-        error("Unknown BiT variant: $variant. Known variants: " *
-              "$(sort(collect(keys(BIT_VARIANTS))))")
+        error(
+            "Unknown BiT variant: $variant. Known variants: " *
+            "$(sort(collect(keys(BIT_VARIANTS))))",
+        )
     end
-    mapping = Tuple{String, Tuple{Vararg{Symbol}}, Function}[]
+    mapping = Tuple{String,Tuple{Vararg{Symbol}},Function}[]
 
     # The released checkpoint always has the 3-channel stem weight; adapt it
     # on the fly when the model was built with a different in_chans, matching
     # timm's adapt_input_conv.
     stem_w_transform = in_chans == 3 ? identity : adapt_input_conv(in_chans)
-    push!(mapping, ("stem.conv.weight",
-                    (prefix..., :stem_conv, :conv, :weight), stem_w_transform))
+    push!(
+        mapping,
+        ("stem.conv.weight", (prefix..., :stem_conv, :conv, :weight), stem_w_transform),
+    )
 
     for (s, depth) in enumerate(cfg.layers)
         stage_sym = Symbol("stage", s)
-        for b in 1:depth
+        for b = 1:depth
             layer_sym = Symbol("layer_", b)
             py_block = "stages.$(s - 1).blocks.$(b - 1)"
-            for n in 1:3
+            for n = 1:3
                 norm_sym = Symbol("norm", n)
                 conv_sym = Symbol("conv", n)
-                push!(mapping, ("$(py_block).norm$(n).weight",
-                                (prefix..., stage_sym, layer_sym, norm_sym, :gn, :scale),
-                                identity))
-                push!(mapping, ("$(py_block).norm$(n).bias",
-                                (prefix..., stage_sym, layer_sym, norm_sym, :gn, :bias),
-                                identity))
-                push!(mapping, ("$(py_block).conv$(n).weight",
-                                (prefix..., stage_sym, layer_sym, conv_sym, :conv, :weight),
-                                identity))
+                push!(
+                    mapping,
+                    (
+                        "$(py_block).norm$(n).weight",
+                        (prefix..., stage_sym, layer_sym, norm_sym, :gn, :scale),
+                        identity,
+                    ),
+                )
+                push!(
+                    mapping,
+                    (
+                        "$(py_block).norm$(n).bias",
+                        (prefix..., stage_sym, layer_sym, norm_sym, :gn, :bias),
+                        identity,
+                    ),
+                )
+                push!(
+                    mapping,
+                    (
+                        "$(py_block).conv$(n).weight",
+                        (prefix..., stage_sym, layer_sym, conv_sym, :conv, :weight),
+                        identity,
+                    ),
+                )
             end
             if b == 1
-                push!(mapping, ("$(py_block).downsample.conv.weight",
-                                (prefix..., stage_sym, layer_sym, :ds_conv, :conv, :weight),
-                                identity))
+                push!(
+                    mapping,
+                    (
+                        "$(py_block).downsample.conv.weight",
+                        (prefix..., stage_sym, layer_sym, :ds_conv, :conv, :weight),
+                        identity,
+                    ),
+                )
             end
         end
     end
 
     push!(mapping, ("norm.weight", (prefix..., :final_norm, :gn, :scale), identity))
-    push!(mapping, ("norm.bias",   (prefix..., :final_norm, :gn, :bias),  identity))
+    push!(mapping, ("norm.bias", (prefix..., :final_norm, :gn, :bias), identity))
 
     if load_classifier
-        push!(mapping, ("head.fc.weight",
-                        (prefix..., :head_fc, :weight), identity))
-        push!(mapping, ("head.fc.bias",
-                        (prefix..., :head_fc, :bias),   identity))
+        push!(mapping, ("head.fc.weight", (prefix..., :head_fc, :weight), identity))
+        push!(mapping, ("head.fc.bias", (prefix..., :head_fc, :bias), identity))
     end
 
     for (pykey, _, _) in mapping
@@ -289,11 +361,16 @@ at `create_pretrained` time. Three classifier-head cases:
   loaded and a `@warn` is emitted; the user's custom classifier is
   left at its `Lux.setup` random initialization for them to train.
 """
-function _load_bit_resnetv2(ps, st, variant::Symbol;
-        in_chans::Int, num_classes::Int,
-        revision::AbstractString,
-        cache_dir::AbstractString,
-        prefix::Tuple{Vararg{Symbol}})
+function _load_bit_resnetv2(
+    ps,
+    st,
+    variant::Symbol;
+    in_chans::Int,
+    num_classes::Int,
+    revision::AbstractString,
+    cache_dir::AbstractString,
+    prefix::Tuple{Vararg{Symbol}},
+)
     cfg = BIT_VARIANTS[variant]
     load_classifier = num_classes > 0 && num_classes == cfg.default_num_classes
     if num_classes > 0 && num_classes != cfg.default_num_classes
@@ -301,13 +378,23 @@ function _load_bit_resnetv2(ps, st, variant::Symbol;
               "but the model has a $num_classes-class head. Loading the backbone only; " *
               "the classifier head is left at its Lux.setup random initialization for you to train."
     end
-    path = hf_hub_download(cfg.hf_repo, "model.safetensors";
-                            revision = revision, cache_dir = cache_dir)
+    path = hf_hub_download(
+        cfg.hf_repo,
+        "model.safetensors";
+        revision = revision,
+        cache_dir = cache_dir,
+    )
     sd = load_safetensors_state_dict(path)
-    ps = apply_state_dict(ps, sd,
-                          bit_resnetv2_mapping(sd, variant;
-                                                load_classifier = load_classifier,
-                                                in_chans = in_chans,
-                                                prefix = prefix))
+    ps = apply_state_dict(
+        ps,
+        sd,
+        bit_resnetv2_mapping(
+            sd,
+            variant;
+            load_classifier = load_classifier,
+            in_chans = in_chans,
+            prefix = prefix,
+        ),
+    )
     return ps, st
 end

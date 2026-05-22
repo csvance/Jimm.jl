@@ -45,8 +45,8 @@ Fields:
 """
 struct ConvNeXtVariant
     name::Symbol
-    depths::NTuple{4, Int}
-    dims::NTuple{4, Int}
+    depths::NTuple{4,Int}
+    dims::NTuple{4,Int}
     hf_repo::String
     default_num_classes::Int
     default_input_size::Int
@@ -56,16 +56,16 @@ end
 # Per-size architecture parameters mirroring timm's `convnext_<size>` factory
 # functions in convnext.py. Tiny uses depth 9 in stage 3; small/base/large/
 # xlarge all use depth 27. Widths grow as a power of 2.
-const _CN_TINY_DEPTHS   = (3, 3, 9,  3)
-const _CN_TINY_DIMS     = (96, 192, 384, 768)
-const _CN_SMALL_DEPTHS  = (3, 3, 27, 3)
-const _CN_SMALL_DIMS    = (96, 192, 384, 768)
-const _CN_BASE_DEPTHS   = (3, 3, 27, 3)
-const _CN_BASE_DIMS     = (128, 256, 512, 1024)
-const _CN_LARGE_DEPTHS  = (3, 3, 27, 3)
-const _CN_LARGE_DIMS    = (192, 384, 768, 1536)
+const _CN_TINY_DEPTHS = (3, 3, 9, 3)
+const _CN_TINY_DIMS = (96, 192, 384, 768)
+const _CN_SMALL_DEPTHS = (3, 3, 27, 3)
+const _CN_SMALL_DIMS = (96, 192, 384, 768)
+const _CN_BASE_DEPTHS = (3, 3, 27, 3)
+const _CN_BASE_DIMS = (128, 256, 512, 1024)
+const _CN_LARGE_DEPTHS = (3, 3, 27, 3)
+const _CN_LARGE_DIMS = (192, 384, 768, 1536)
 const _CN_XLARGE_DEPTHS = (3, 3, 27, 3)
-const _CN_XLARGE_DIMS   = (256, 512, 1024, 2048)
+const _CN_XLARGE_DIMS = (256, 512, 1024, 2048)
 
 # Default LayerScale init for the v1 variants registered here. All
 # released v1 checkpoints (FB-paper `.fb_*` and Meta `.dinov3_*`) use the
@@ -83,109 +83,224 @@ plus the three IN22K-based XLarge checkpoints). Additional `convnext_*`
 lineages (`.in12k_*`, `.clip_*`) can be registered without touching the
 constructor or mapping code.
 """
-const CONVNEXT_VARIANTS = Dict{Symbol, ConvNeXtVariant}(
+const CONVNEXT_VARIANTS = Dict{Symbol,ConvNeXtVariant}(
     # Meta DINOv3 encoders (no usable head).
     :convnext_tiny_dinov3_lvd1689m => ConvNeXtVariant(
         :convnext_tiny_dinov3_lvd1689m,
-        _CN_TINY_DEPTHS, _CN_TINY_DIMS,
-        "timm/convnext_tiny.dinov3_lvd1689m", 0, 224, _CN_V1_LS_INIT),
+        _CN_TINY_DEPTHS,
+        _CN_TINY_DIMS,
+        "timm/convnext_tiny.dinov3_lvd1689m",
+        0,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_small_dinov3_lvd1689m => ConvNeXtVariant(
         :convnext_small_dinov3_lvd1689m,
-        _CN_SMALL_DEPTHS, _CN_SMALL_DIMS,
-        "timm/convnext_small.dinov3_lvd1689m", 0, 224, _CN_V1_LS_INIT),
+        _CN_SMALL_DEPTHS,
+        _CN_SMALL_DIMS,
+        "timm/convnext_small.dinov3_lvd1689m",
+        0,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_base_dinov3_lvd1689m => ConvNeXtVariant(
         :convnext_base_dinov3_lvd1689m,
-        _CN_BASE_DEPTHS, _CN_BASE_DIMS,
-        "timm/convnext_base.dinov3_lvd1689m", 0, 224, _CN_V1_LS_INIT),
+        _CN_BASE_DEPTHS,
+        _CN_BASE_DIMS,
+        "timm/convnext_base.dinov3_lvd1689m",
+        0,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_large_dinov3_lvd1689m => ConvNeXtVariant(
         :convnext_large_dinov3_lvd1689m,
-        _CN_LARGE_DEPTHS, _CN_LARGE_DIMS,
-        "timm/convnext_large.dinov3_lvd1689m", 0, 224, _CN_V1_LS_INIT),
+        _CN_LARGE_DEPTHS,
+        _CN_LARGE_DIMS,
+        "timm/convnext_large.dinov3_lvd1689m",
+        0,
+        224,
+        _CN_V1_LS_INIT,
+    ),
 
     # Facebook AI checkpoints from the original 2022 ConvNeXt paper.
     # Tiny.
     :convnext_tiny_fb_in1k => ConvNeXtVariant(
         :convnext_tiny_fb_in1k,
-        _CN_TINY_DEPTHS, _CN_TINY_DIMS,
-        "timm/convnext_tiny.fb_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_TINY_DEPTHS,
+        _CN_TINY_DIMS,
+        "timm/convnext_tiny.fb_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_tiny_fb_in22k => ConvNeXtVariant(
         :convnext_tiny_fb_in22k,
-        _CN_TINY_DEPTHS, _CN_TINY_DIMS,
-        "timm/convnext_tiny.fb_in22k", 21841, 224, _CN_V1_LS_INIT),
+        _CN_TINY_DEPTHS,
+        _CN_TINY_DIMS,
+        "timm/convnext_tiny.fb_in22k",
+        21841,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_tiny_fb_in22k_ft_in1k => ConvNeXtVariant(
         :convnext_tiny_fb_in22k_ft_in1k,
-        _CN_TINY_DEPTHS, _CN_TINY_DIMS,
-        "timm/convnext_tiny.fb_in22k_ft_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_TINY_DEPTHS,
+        _CN_TINY_DIMS,
+        "timm/convnext_tiny.fb_in22k_ft_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_tiny_fb_in22k_ft_in1k_384 => ConvNeXtVariant(
         :convnext_tiny_fb_in22k_ft_in1k_384,
-        _CN_TINY_DEPTHS, _CN_TINY_DIMS,
-        "timm/convnext_tiny.fb_in22k_ft_in1k_384", 1000, 384, _CN_V1_LS_INIT),
+        _CN_TINY_DEPTHS,
+        _CN_TINY_DIMS,
+        "timm/convnext_tiny.fb_in22k_ft_in1k_384",
+        1000,
+        384,
+        _CN_V1_LS_INIT,
+    ),
 
     # Small.
     :convnext_small_fb_in1k => ConvNeXtVariant(
         :convnext_small_fb_in1k,
-        _CN_SMALL_DEPTHS, _CN_SMALL_DIMS,
-        "timm/convnext_small.fb_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_SMALL_DEPTHS,
+        _CN_SMALL_DIMS,
+        "timm/convnext_small.fb_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_small_fb_in22k => ConvNeXtVariant(
         :convnext_small_fb_in22k,
-        _CN_SMALL_DEPTHS, _CN_SMALL_DIMS,
-        "timm/convnext_small.fb_in22k", 21841, 224, _CN_V1_LS_INIT),
+        _CN_SMALL_DEPTHS,
+        _CN_SMALL_DIMS,
+        "timm/convnext_small.fb_in22k",
+        21841,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_small_fb_in22k_ft_in1k => ConvNeXtVariant(
         :convnext_small_fb_in22k_ft_in1k,
-        _CN_SMALL_DEPTHS, _CN_SMALL_DIMS,
-        "timm/convnext_small.fb_in22k_ft_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_SMALL_DEPTHS,
+        _CN_SMALL_DIMS,
+        "timm/convnext_small.fb_in22k_ft_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_small_fb_in22k_ft_in1k_384 => ConvNeXtVariant(
         :convnext_small_fb_in22k_ft_in1k_384,
-        _CN_SMALL_DEPTHS, _CN_SMALL_DIMS,
-        "timm/convnext_small.fb_in22k_ft_in1k_384", 1000, 384, _CN_V1_LS_INIT),
+        _CN_SMALL_DEPTHS,
+        _CN_SMALL_DIMS,
+        "timm/convnext_small.fb_in22k_ft_in1k_384",
+        1000,
+        384,
+        _CN_V1_LS_INIT,
+    ),
 
     # Base.
     :convnext_base_fb_in1k => ConvNeXtVariant(
         :convnext_base_fb_in1k,
-        _CN_BASE_DEPTHS, _CN_BASE_DIMS,
-        "timm/convnext_base.fb_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_BASE_DEPTHS,
+        _CN_BASE_DIMS,
+        "timm/convnext_base.fb_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_base_fb_in22k => ConvNeXtVariant(
         :convnext_base_fb_in22k,
-        _CN_BASE_DEPTHS, _CN_BASE_DIMS,
-        "timm/convnext_base.fb_in22k", 21841, 224, _CN_V1_LS_INIT),
+        _CN_BASE_DEPTHS,
+        _CN_BASE_DIMS,
+        "timm/convnext_base.fb_in22k",
+        21841,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_base_fb_in22k_ft_in1k => ConvNeXtVariant(
         :convnext_base_fb_in22k_ft_in1k,
-        _CN_BASE_DEPTHS, _CN_BASE_DIMS,
-        "timm/convnext_base.fb_in22k_ft_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_BASE_DEPTHS,
+        _CN_BASE_DIMS,
+        "timm/convnext_base.fb_in22k_ft_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_base_fb_in22k_ft_in1k_384 => ConvNeXtVariant(
         :convnext_base_fb_in22k_ft_in1k_384,
-        _CN_BASE_DEPTHS, _CN_BASE_DIMS,
-        "timm/convnext_base.fb_in22k_ft_in1k_384", 1000, 384, _CN_V1_LS_INIT),
+        _CN_BASE_DEPTHS,
+        _CN_BASE_DIMS,
+        "timm/convnext_base.fb_in22k_ft_in1k_384",
+        1000,
+        384,
+        _CN_V1_LS_INIT,
+    ),
 
     # Large.
     :convnext_large_fb_in1k => ConvNeXtVariant(
         :convnext_large_fb_in1k,
-        _CN_LARGE_DEPTHS, _CN_LARGE_DIMS,
-        "timm/convnext_large.fb_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_LARGE_DEPTHS,
+        _CN_LARGE_DIMS,
+        "timm/convnext_large.fb_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_large_fb_in22k => ConvNeXtVariant(
         :convnext_large_fb_in22k,
-        _CN_LARGE_DEPTHS, _CN_LARGE_DIMS,
-        "timm/convnext_large.fb_in22k", 21841, 224, _CN_V1_LS_INIT),
+        _CN_LARGE_DEPTHS,
+        _CN_LARGE_DIMS,
+        "timm/convnext_large.fb_in22k",
+        21841,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_large_fb_in22k_ft_in1k => ConvNeXtVariant(
         :convnext_large_fb_in22k_ft_in1k,
-        _CN_LARGE_DEPTHS, _CN_LARGE_DIMS,
-        "timm/convnext_large.fb_in22k_ft_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_LARGE_DEPTHS,
+        _CN_LARGE_DIMS,
+        "timm/convnext_large.fb_in22k_ft_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_large_fb_in22k_ft_in1k_384 => ConvNeXtVariant(
         :convnext_large_fb_in22k_ft_in1k_384,
-        _CN_LARGE_DEPTHS, _CN_LARGE_DIMS,
-        "timm/convnext_large.fb_in22k_ft_in1k_384", 1000, 384, _CN_V1_LS_INIT),
+        _CN_LARGE_DEPTHS,
+        _CN_LARGE_DIMS,
+        "timm/convnext_large.fb_in22k_ft_in1k_384",
+        1000,
+        384,
+        _CN_V1_LS_INIT,
+    ),
 
     # XLarge (no from-scratch IN1K release).
     :convnext_xlarge_fb_in22k => ConvNeXtVariant(
         :convnext_xlarge_fb_in22k,
-        _CN_XLARGE_DEPTHS, _CN_XLARGE_DIMS,
-        "timm/convnext_xlarge.fb_in22k", 21841, 224, _CN_V1_LS_INIT),
+        _CN_XLARGE_DEPTHS,
+        _CN_XLARGE_DIMS,
+        "timm/convnext_xlarge.fb_in22k",
+        21841,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_xlarge_fb_in22k_ft_in1k => ConvNeXtVariant(
         :convnext_xlarge_fb_in22k_ft_in1k,
-        _CN_XLARGE_DEPTHS, _CN_XLARGE_DIMS,
-        "timm/convnext_xlarge.fb_in22k_ft_in1k", 1000, 224, _CN_V1_LS_INIT),
+        _CN_XLARGE_DEPTHS,
+        _CN_XLARGE_DIMS,
+        "timm/convnext_xlarge.fb_in22k_ft_in1k",
+        1000,
+        224,
+        _CN_V1_LS_INIT,
+    ),
     :convnext_xlarge_fb_in22k_ft_in1k_384 => ConvNeXtVariant(
         :convnext_xlarge_fb_in22k_ft_in1k_384,
-        _CN_XLARGE_DEPTHS, _CN_XLARGE_DIMS,
-        "timm/convnext_xlarge.fb_in22k_ft_in1k_384", 1000, 384, _CN_V1_LS_INIT),
+        _CN_XLARGE_DEPTHS,
+        _CN_XLARGE_DIMS,
+        "timm/convnext_xlarge.fb_in22k_ft_in1k_384",
+        1000,
+        384,
+        _CN_V1_LS_INIT,
+    ),
 )

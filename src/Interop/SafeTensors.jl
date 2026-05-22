@@ -18,10 +18,9 @@ resulting layout matches `read_parity`'s HDF5-natural Julia layout (PyTorch
 axes reversed). Set `reverse_axes = false` to keep PyTorch's logical axis
 order if a caller wants that layout explicitly.
 """
-function load_safetensors_state_dict(path::AbstractString;
-        reverse_axes::Bool = true)
+function load_safetensors_state_dict(path::AbstractString; reverse_axes::Bool = true)
     raw = SafeTensors.load_safetensors(path)
-    out = Dict{String, Array{Float32}}()
+    out = Dict{String,Array{Float32}}()
     for (k, v) in raw
         a = Float32.(v)
         if !(a isa AbstractArray)

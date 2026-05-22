@@ -55,8 +55,7 @@ using Jimm
         # repo at a URL that does not exist. The cached refs/main must
         # let us short-circuit and return the existing snapshot path.
         bad_repo = "definitely-not-a-real-org/$(basename(tempname()))"
-        bad_repo_dir = joinpath(cache,
-                                "models--" * replace(bad_repo, "/" => "--"))
+        bad_repo_dir = joinpath(cache, "models--" * replace(bad_repo, "/" => "--"))
         mkpath(joinpath(bad_repo_dir, "snapshots", commit_sha))
         mkpath(joinpath(bad_repo_dir, "refs"))
         write(joinpath(bad_repo_dir, "refs", "main"), commit_sha)
@@ -72,10 +71,7 @@ using Jimm
 end
 
 @testset "hf_hub_cache_dir env precedence" begin
-    saved = (
-        get(ENV, "HF_HUB_CACHE", nothing),
-        get(ENV, "HF_HOME", nothing),
-    )
+    saved = (get(ENV, "HF_HUB_CACHE", nothing), get(ENV, "HF_HOME", nothing))
     try
         delete!(ENV, "HF_HUB_CACHE")
         delete!(ENV, "HF_HOME")
@@ -89,7 +85,8 @@ end
         @test hf_hub_cache_dir() == "/tmp/jimm_hf_hub_cache_test"
     finally
         # restore env exactly as we found it
-        saved[1] === nothing ? delete!(ENV, "HF_HUB_CACHE") : (ENV["HF_HUB_CACHE"] = saved[1])
+        saved[1] === nothing ? delete!(ENV, "HF_HUB_CACHE") :
+        (ENV["HF_HUB_CACHE"] = saved[1])
         saved[2] === nothing ? delete!(ENV, "HF_HOME") : (ENV["HF_HOME"] = saved[2])
     end
 end

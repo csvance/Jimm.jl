@@ -8,8 +8,7 @@ include("Parity.jl")
 include("HFHub.jl")
 include("SafeTensors.jl")
 
-export read_parity, apply_state_dict, axis_reverse, pyperm, as_channel4d,
-       adapt_input_conv
+export read_parity, apply_state_dict, axis_reverse, pyperm, as_channel4d, adapt_input_conv
 export hf_download, hf_hub_download, hf_hub_cache_dir
 export load_safetensors_state_dict
 

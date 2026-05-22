@@ -14,11 +14,16 @@ given commit so the runner stops considering it. `source` controls the
 summary wording (`:run` for the in-TUI decline path, `:skip` for the
 explicit skip CLI).
 """
-function mark_skipped(gh::GitHubApp, repo::AbstractString,
-                       sha::AbstractString, families;
-                       source::Symbol = :run)
+function mark_skipped(
+    gh::GitHubApp,
+    repo::AbstractString,
+    sha::AbstractString,
+    families;
+    source::Symbol = :run,
+)
     today_str = Dates.format(Dates.today(), dateformat"yyyy-mm-dd")
-    summary = source === :skip ?
+    summary =
+        source === :skip ?
         "Marked skipped by `jimm-ci --skip-pending` on $today_str. " *
         "Re-running CI on this commit requires deleting this check or " *
         "pushing a new commit on top." :
@@ -27,8 +32,13 @@ function mark_skipped(gh::GitHubApp, repo::AbstractString,
     output = Dict{String,Any}("title" => "Skipped", "summary" => summary)
     for family in families
         create_check_run(
-            gh, repo, sha, check_name(family, "");
-            status = "completed", conclusion = "skipped", output = output,
+            gh,
+            repo,
+            sha,
+            check_name(family, "");
+            status = "completed",
+            conclusion = "skipped",
+            output = output,
         )
     end
     return nothing

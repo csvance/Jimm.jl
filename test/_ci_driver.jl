@@ -114,13 +114,15 @@ end
 
 function _driver_main()
     requested = families_enabled()
-    ordered   = [f for f in _DRIVER_ORDER if f in requested]
-    overall   = 0
+    ordered = [f for f in _DRIVER_ORDER if f in requested]
+    overall = 0
     for fam in ordered
-        println(stdout, "==> JIMM_FAMILY_BEGIN: family=$(fam)"); flush(stdout)
+        println(stdout, "==> JIMM_FAMILY_BEGIN: family=$(fam)");
+        flush(stdout)
         rc = _run_family(fam)
         rc == 0 || (overall = 1)
-        println(stdout, "==> JIMM_FAMILY_END: family=$(fam) rc=$(rc)"); flush(stdout)
+        println(stdout, "==> JIMM_FAMILY_END: family=$(fam) rc=$(rc)");
+        flush(stdout)
     end
     return overall
 end
