@@ -1,7 +1,7 @@
 # Classic ResNet parity tests against timm reference outputs.
 
 using Test
-using Jimm
+using Luximm
 using Lux
 using Random
 
@@ -13,7 +13,7 @@ isdefined(@__MODULE__, :run_variant_parity) || include("_parity_helpers.jl")
 # set of dumps simply skip the missing variants. Deriving the list from
 # RESNET_VARIANTS keeps it in sync as new variants land in
 # src/Models/ResNet/Config.jl without a second edit here.
-const RESNET_VARIANTS_TO_TEST = Tuple(sort(collect(keys(Jimm.RESNET_VARIANTS))))
+const RESNET_VARIANTS_TO_TEST = Tuple(sort(collect(keys(Luximm.RESNET_VARIANTS))))
 
 @testset "ResNet parity" begin
     for variant in variant_filter(RESNET_VARIANTS_TO_TEST)

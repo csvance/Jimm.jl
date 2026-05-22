@@ -33,7 +33,7 @@ using JimmCI.PathFilter
     @testset "shared exact files promote to all families" begin
         @test families_for_paths(["Project.toml"]) == collect(ALL_FAMILIES)
         @test families_for_paths(["Manifest.toml"]) == collect(ALL_FAMILIES)
-        @test families_for_paths(["src/Jimm.jl"]) == collect(ALL_FAMILIES)
+        @test families_for_paths(["src/Luximm.jl"]) == collect(ALL_FAMILIES)
         @test families_for_paths(["test/runtests.jl"]) == collect(ALL_FAMILIES)
         @test families_for_paths(["test/_filter.jl"]) == collect(ALL_FAMILIES)
     end

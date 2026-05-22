@@ -6,14 +6,14 @@
 #      timm's forward_features (and logits, for variants with a trained head).
 #   2. Downloads the variant's model.safetensors from HuggingFace (cached on
 #      disk so reruns are fast and offline).
-#   3. Builds the Jimm model, applies the weights, and asserts max-abs-diff
+#   3. Builds the Luximm model, applies the weights, and asserts max-abs-diff
 #      against the timm reference is under `LOGITS_ATOL`.
 #
 # Skipped if the fixture file is missing or HF_OFFLINE=1 is set (so CI without
 # network or fixtures can still pass the rest of the suite).
 
 using Test
-using Jimm
+using Luximm
 using Lux
 using Random
 
@@ -25,7 +25,7 @@ isdefined(@__MODULE__, :run_variant_parity) || include("_parity_helpers.jl")
 # set of dumps simply skip the missing variants. Deriving the list from
 # CONVNEXT_VARIANTS keeps it in sync as new variants land in
 # src/Models/ConvNeXt/Config.jl without a second edit here.
-const VARIANTS_TO_TEST = Tuple(sort(collect(keys(Jimm.CONVNEXT_VARIANTS))))
+const VARIANTS_TO_TEST = Tuple(sort(collect(keys(Luximm.CONVNEXT_VARIANTS))))
 
 @testset "ConvNeXt parity" begin
     for variant in variant_filter(VARIANTS_TO_TEST)

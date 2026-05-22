@@ -1,4 +1,4 @@
-module Jimm
+module Luximm
 
 include("Interop/Interop.jl")
 include("Layers/Layers.jl")
@@ -29,4 +29,4 @@ export BiTVariant,
     create_pretrained,
     default_num_classes
 
-end # module Jimm
+end # module Luximm

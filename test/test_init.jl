@@ -5,7 +5,7 @@
 # `glorot_uniform` or to an unintentionally non-zero bias init.
 
 using Test
-using Jimm
+using Luximm
 using Lux
 using Random
 using Statistics

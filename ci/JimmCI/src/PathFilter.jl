@@ -6,7 +6,7 @@ const _SHARED_PREFIXES =
     ("src/Layers/", "src/Interop/", "src/Models/ConvNeXtCommon/", "ci/")
 
 const _SHARED_EXACT = Set([
-    "src/Jimm.jl",
+    "src/Luximm.jl",
     "src/Models/Models.jl",
     "Project.toml",
     "Manifest.toml",
@@ -65,7 +65,7 @@ end
 """
     families_for_paths(paths) -> Vector{String}
 
-Map a list of changed file paths to the set of Jimm test families they
+Map a list of changed file paths to the set of Luximm test families they
 affect, returned in canonical order. Returns an empty vector when no
 recognized file changed.
 """

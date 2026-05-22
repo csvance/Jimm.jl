@@ -51,8 +51,8 @@
      font-family="'Helvetica Neue', Helvetica, 'Liberation Sans', Arial, sans-serif"
      font-weight="800"
      stroke-linejoin="round" paint-order="stroke">
-    <text x="0" y="0" font-size="76" letter-spacing="-3" stroke-width="2">
-      <tspan fill="#9558B2" stroke="#3D1F55">Jimm</tspan><tspan fill="#7A8294" stroke="#3A4252">&#8727;</tspan><tspan fill="#CB3C33" stroke="#5A130F">j</tspan><tspan fill="#389826" stroke="#143E0D">l</tspan>
+    <text x="0" y="0" font-size="65" letter-spacing="-3" stroke-width="2">
+      <tspan fill="#9558B2" stroke="#3D1F55">Luximm</tspan><tspan fill="#7A8294" stroke="#3A4252">&#8727;</tspan><tspan fill="#CB3C33" stroke="#5A130F">j</tspan><tspan fill="#389826" stroke="#143E0D">l</tspan>
     </text>
   </g>
 </svg>

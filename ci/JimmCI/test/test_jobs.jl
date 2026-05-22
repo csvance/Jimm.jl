@@ -16,14 +16,14 @@ _pr(head_full, base_full) = Dict(
 @testset "Jobs" begin
     @testset "_classify_pr_head" begin
         @testset "same-repo PR" begin
-            head_repo, is_fork = _classify(_pr("owner/Jimm.jl", "owner/Jimm.jl"))
-            @test head_repo == "owner/Jimm.jl"
+            head_repo, is_fork = _classify(_pr("owner/Luximm.jl", "owner/Luximm.jl"))
+            @test head_repo == "owner/Luximm.jl"
             @test is_fork === false
         end
 
         @testset "fork PR" begin
-            head_repo, is_fork = _classify(_pr("contrib/Jimm.jl", "owner/Jimm.jl"))
-            @test head_repo == "contrib/Jimm.jl"
+            head_repo, is_fork = _classify(_pr("contrib/Luximm.jl", "owner/Luximm.jl"))
+            @test head_repo == "contrib/Luximm.jl"
             @test is_fork === true
         end
 
@@ -36,7 +36,7 @@ _pr(head_full, base_full) = Dict(
                 "head" => Dict("sha" => "a"^40, "repo" => nothing),
                 "base" => Dict(
                     "sha" => "b"^40,
-                    "repo" => Dict("full_name" => "owner/Jimm.jl"),
+                    "repo" => Dict("full_name" => "owner/Luximm.jl"),
                 ),
             )
             head_repo, is_fork = _classify(pr)
@@ -55,11 +55,11 @@ _pr(head_full, base_full) = Dict(
             _Jobs.PR_JOB;
             pr_number = 1,
             pr_title = "t",
-            head_repo = "contrib/Jimm.jl",
+            head_repo = "contrib/Luximm.jl",
             is_fork = true,
             created_at = DateTime(2026, 1, 1),
         )
-        @test j.head_repo == "contrib/Jimm.jl"
+        @test j.head_repo == "contrib/Luximm.jl"
         @test j.is_fork === true
 
         master = _Jobs.Job(

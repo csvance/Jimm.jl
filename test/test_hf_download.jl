@@ -10,7 +10,7 @@
 # on the caller's thread.
 
 using Test
-using Jimm
+using Luximm
 
 # Tiny file from one of the BiT repos used elsewhere in the suite.
 # Bytes-wise it's ~570B; the dominant cost is the HTTPS round-trip,

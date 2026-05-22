@@ -1,6 +1,6 @@
 # BiT ResNetV2 backbone, Lux port of timm's `resnetv2_<variant>_bit.goog_in21k`
 # family. A single `bit_resnetv2(variant; ...)` constructor table-drives all
-# variants from `BIT_VARIANTS`; `std_conv` lives in `Jimm.Layers` since other
+# variants from `BIT_VARIANTS`; `std_conv` lives in `Luximm.Layers` since other
 # timm families (NFNet, etc.) reuse the same block.
 #
 # Architecture (identical across variants; only `stem_chs`, `stage_chs`,
