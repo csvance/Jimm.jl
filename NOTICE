@@ -1,5 +1,5 @@
 This product includes software ported from PyTorch Image Models (timm).
 
   https://github.com/huggingface/pytorch-image-models
-  Copyright 2020 Ross Wightman
+  Copyright 2019 Ross Wightman
   Licensed under the Apache License, Version 2.0.
