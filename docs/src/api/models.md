@@ -46,11 +46,39 @@ ResNetVariant
 RESNET_VARIANTS
 ```
 
+### Registered variants
+
+```@eval
+using Markdown, Jimm
+rows = sort(collect(Jimm.RESNET_VARIANTS); by = p -> String(first(p)))
+io = IOBuffer()
+println(io, "| Variant | HF repo | num_classes | num_features | input size |")
+println(io, "|:---|:---|---:|---:|---:|")
+for (k, v) in rows
+    println(io, "| `:$(k)` | [`$(v.hf_repo)`](https://huggingface.co/$(v.hf_repo)) | $(v.default_num_classes) | $(v.num_features) | $(v.default_input_size) |")
+end
+Markdown.parse(String(take!(io)))
+```
+
 ## BiT ResNetV2
 
 ```@docs
 BiTVariant
 BIT_VARIANTS
+```
+
+### Registered variants
+
+```@eval
+using Markdown, Jimm
+rows = sort(collect(Jimm.BIT_VARIANTS); by = p -> String(first(p)))
+io = IOBuffer()
+println(io, "| Variant | HF repo | num_classes | num_features | input size |")
+println(io, "|:---|:---|---:|---:|---:|")
+for (k, v) in rows
+    println(io, "| `:$(k)` | [`$(v.hf_repo)`](https://huggingface.co/$(v.hf_repo)) | $(v.default_num_classes) | $(v.num_features) | $(v.default_input_size) |")
+end
+Markdown.parse(String(take!(io)))
 ```
 
 ## ConvNeXt
@@ -60,9 +88,37 @@ ConvNeXtVariant
 CONVNEXT_VARIANTS
 ```
 
+### Registered variants
+
+```@eval
+using Markdown, Jimm
+rows = sort(collect(Jimm.CONVNEXT_VARIANTS); by = p -> String(first(p)))
+io = IOBuffer()
+println(io, "| Variant | HF repo | num_classes | num_features | input size |")
+println(io, "|:---|:---|---:|---:|---:|")
+for (k, v) in rows
+    println(io, "| `:$(k)` | [`$(v.hf_repo)`](https://huggingface.co/$(v.hf_repo)) | $(v.default_num_classes) | $(v.dims[end]) | $(v.default_input_size) |")
+end
+Markdown.parse(String(take!(io)))
+```
+
 ## ConvNeXt V2
 
 ```@docs
 ConvNeXtV2Variant
 CONVNEXTV2_VARIANTS
+```
+
+### Registered variants
+
+```@eval
+using Markdown, Jimm
+rows = sort(collect(Jimm.CONVNEXTV2_VARIANTS); by = p -> String(first(p)))
+io = IOBuffer()
+println(io, "| Variant | HF repo | num_classes | num_features | input size |")
+println(io, "|:---|:---|---:|---:|---:|")
+for (k, v) in rows
+    println(io, "| `:$(k)` | [`$(v.hf_repo)`](https://huggingface.co/$(v.hf_repo)) | $(v.default_num_classes) | $(v.dims[end]) | $(v.default_input_size) |")
+end
+Markdown.parse(String(take!(io)))
 ```

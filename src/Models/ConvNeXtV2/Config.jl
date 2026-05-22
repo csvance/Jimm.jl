@@ -65,12 +65,9 @@ const _CN2_HUGE_DIMS = (352, 704, 1408, 2816)
 """
     CONVNEXTV2_VARIANTS :: Dict{Symbol, ConvNeXtV2Variant}
 
-Lookup table for the ConvNeXtV2 variants this package ports.
-
-Entries are grouped by size. Within each size, the `.fcmae` row is the bare
-encoder (`default_num_classes = 0`); all other rows ship a 1000-class head.
-The `_384` and `_512` suffixes denote the native training resolution of the
-released weights.
+Lookup table for the ConvNeXtV2 variants this package ports. The
+`.fcmae` rows are the bare encoders; all other rows ship a 1000-class
+ImageNet head.
 """
 const CONVNEXTV2_VARIANTS = Dict{Symbol,ConvNeXtV2Variant}(
     # atto

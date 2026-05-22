@@ -52,22 +52,10 @@ end
 """
     BIT_VARIANTS :: Dict{Symbol, BiTVariant}
 
-Lookup table for the BiT variants this package currently ports. Keys are
-the timm model names with the dot rewritten as an underscore (the
-`bit_resnetv2` constructor accepts them as `variant` arguments).
-
-Supported tag flavors (all six 50x1/50x3/101x1/101x3/152x2/152x4
-architectures unless noted otherwise):
-
-- `goog_in21k`: 21843-class head, 224 native input. All six arches.
-- `goog_in21k_ft_in1k`: 1000-class head, 224 native input. All six arches.
-- `goog_distilled_in1k`: 1000-class head, 224 native input. 50x1 only.
-- `goog_teacher_in21k_ft_in1k`: 1000-class head, 224 native input. 152x2 only.
-- `goog_teacher_in21k_ft_in1k_384`: 1000-class head, 384 native input. 152x2 only.
-
-Variant keys mirror the timm model name with the dot rewritten as an
-underscore (the dot is reserved in Julia identifiers); the full timm
-name with the dot lives at `BIT_VARIANTS[key].hf_repo`.
+Lookup table for the BiT variants this package currently ports. Keys
+mirror the timm model name with the dot rewritten as an underscore (the
+dot is reserved in Julia identifiers); the full timm name with the dot
+lives at `BIT_VARIANTS[key].hf_repo`.
 """
 const BIT_VARIANTS = Dict{Symbol,BiTVariant}(
     :resnetv2_50x1_bit_goog_in21k => BiTVariant(

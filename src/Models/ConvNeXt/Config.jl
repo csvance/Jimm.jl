@@ -75,13 +75,10 @@ const _CN_V1_LS_INIT = 1.0f-6
 """
     CONVNEXT_VARIANTS :: Dict{Symbol, ConvNeXtVariant}
 
-Lookup table for the ConvNeXt v1 variants this package ports. Holds the
-four DINOv3 encoders (`num_classes = 0`) and the 19 Facebook AI
-checkpoints from the original ConvNeXt paper (T/S/B/L crossed with
-`.fb_in1k`, `.fb_in22k`, `.fb_in22k_ft_in1k`, `.fb_in22k_ft_in1k_384`,
-plus the three IN22K-based XLarge checkpoints). Additional `convnext_*`
-lineages (`.in12k_*`, `.clip_*`) can be registered without touching the
-constructor or mapping code.
+Lookup table for the ConvNeXt v1 variants this package ports: the
+DINOv3 encoders and the Facebook AI checkpoints from the original
+ConvNeXt paper. Additional `convnext_*` lineages (`.in12k_*`, `.clip_*`)
+can be registered without touching the constructor or mapping code.
 """
 const CONVNEXT_VARIANTS = Dict{Symbol,ConvNeXtVariant}(
     # Meta DINOv3 encoders (no usable head).
