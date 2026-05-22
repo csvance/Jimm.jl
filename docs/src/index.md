@@ -23,13 +23,13 @@ input shapes). File issues and PRs.
 
 ## Available backbones
 
-| Family                                                                              | Variant prefix    | Weights | Weight License                                                                                             | Commercial Use |
-|-------------------------------------------------------------------------------------|-------------------|---------|------------------------------------------------------------------------------------------------------------|----------------|
-| [ResNet](https://arxiv.org/abs/1512.03385)                                          | `:resnet*`        | 5       | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
-| [BiT ResNetV2](https://arxiv.org/abs/1912.11370)                                    | `:resnetv2_*_bit_*` | 15    | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
-| [ConvNeXt](https://arxiv.org/abs/2201.03545)                                        | `:convnext_*`     | 19      | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
-| [ConvNeXt (DINOv3)](https://arxiv.org/abs/2508.10104)                               | `:convnext_*`     | 4       | [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md)                          | ⚠️             |
-| [ConvNeXt V2](https://arxiv.org/abs/2301.00808)                                     | `:convnextv2_*`   | 26      | [CC BY-NC 4.0](https://github.com/facebookresearch/ConvNeXt-V2/blob/main/LICENSE)                         | ❌              |
+| Family                                                                              | Variant prefix                                  | Weights | Weight License                                                                                             | Commercial Use |
+|-------------------------------------------------------------------------------------|-------------------------------------------------|---------|------------------------------------------------------------------------------------------------------------|----------------|
+| [ResNet](https://arxiv.org/abs/1512.03385)                                          | [`:resnet*`](@ref RESNET_VARIANTS)              | 5       | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
+| [BiT ResNetV2](https://arxiv.org/abs/1912.11370)                                    | [`:resnetv2_*_bit_*`](@ref BIT_VARIANTS)        | 15      | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
+| [ConvNeXt](https://arxiv.org/abs/2201.03545)                                        | [`:convnext_*`](@ref CONVNEXT_VARIANTS)         | 19      | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                  | ✅              |
+| [ConvNeXt (DINOv3)](https://arxiv.org/abs/2508.10104)                               | [`:convnext_*`](@ref CONVNEXT_VARIANTS)         | 4       | [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md)                          | ⚠️             |
+| [ConvNeXt V2](https://arxiv.org/abs/2301.00808)                                     | [`:convnextv2_*`](@ref CONVNEXTV2_VARIANTS)     | 26      | [CC BY-NC 4.0](https://github.com/facebookresearch/ConvNeXt-V2/blob/main/LICENSE)                         | ❌              |
 
 ## At a glance
 

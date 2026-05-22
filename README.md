@@ -25,13 +25,13 @@ input shapes). File issues and PRs.
 
 ## Available backbones
 
-| Family                      | Constructor    | Weights | Weight License                     | Commercial Use |
-|-----------------------------|----------------|---------|------------------------------------|----------------|
-| [ResNet][resnet]            | `resnet`       | 5       | [Apache 2.0][license-apache2]      | ✅              |
-| [BiT ResNetV2][bit]         | `bit_resnetv2` | 15      | [Apache 2.0][license-apache2]      | ✅              |
-| [ConvNeXt][convnextv1]      | `convnext`     | 19      | [Apache 2.0][license-apache2]      | ✅              |
-| [ConvNeXt (DINOv3)][dinov3] | `convnext`     | 4       | [DINOv3 License][license-dinov3]   | ⚠️             |
-| [ConvNeXt V2][convnextv2]   | `convnextv2`   | 26      | [CC BY-NC 4.0][license-convnextv2] | ❌              |
+| Family                      | Variant prefix                       | Weights | Weight License                     | Commercial Use |
+|-----------------------------|--------------------------------------|---------|------------------------------------|----------------|
+| [ResNet][resnet]            | [`:resnet*`][prefix-resnet]          | 5       | [Apache 2.0][license-apache2]      | ✅              |
+| [BiT ResNetV2][bit]         | [`:resnetv2_*_bit_*`][prefix-bit]    | 15      | [Apache 2.0][license-apache2]      | ✅              |
+| [ConvNeXt][convnextv1]      | [`:convnext_*`][prefix-convnext]     | 19      | [Apache 2.0][license-apache2]      | ✅              |
+| [ConvNeXt (DINOv3)][dinov3] | [`:convnext_*`][prefix-convnext]     | 4       | [DINOv3 License][license-dinov3]   | ⚠️             |
+| [ConvNeXt V2][convnextv2]   | [`:convnextv2_*`][prefix-convnextv2] | 26      | [CC BY-NC 4.0][license-convnextv2] | ❌              |
 
 ## Basic usage
 
@@ -83,6 +83,14 @@ me to work on and open-source the project.
 [docs]: https://csvance.github.io/Jimm.jl/
 
 [docs-getting-started]: https://csvance.github.io/Jimm.jl/dev/getting_started/
+
+[prefix-resnet]: https://csvance.github.io/Jimm.jl/dev/api/models/#ResNet
+
+[prefix-bit]: https://csvance.github.io/Jimm.jl/dev/api/models/#BiT-ResNetV2
+
+[prefix-convnext]: https://csvance.github.io/Jimm.jl/dev/api/models/#ConvNeXt
+
+[prefix-convnextv2]: https://csvance.github.io/Jimm.jl/dev/api/models/#ConvNeXt-V2
 
 [medicalmetrics]: https://medicalmetrics.com/
 
