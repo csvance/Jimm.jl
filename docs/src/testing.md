@@ -108,7 +108,7 @@ Fixtures live in `data/parity/` and follow the naming convention
 single-channel variants). The directory is gitignored; fixtures are
 not redistributed.
 
-The Julia side consumes fixtures via [`read_parity`](@ref), which
+The Julia side consumes fixtures via `Jimm.Interop.read_parity`, which
 returns a NamedTuple `(input, state_dict, output)` with all arrays
 already axis-reversed from PyTorch NCHW into Lux's WHCN layout. The
 mapping function for the family then routes each state-dict key

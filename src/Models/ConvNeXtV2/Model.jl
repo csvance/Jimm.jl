@@ -169,8 +169,8 @@ depends on the feature width, not `num_classes`), and
 `load_classifier=true` adds the `head.fc.*` Dense keys (whose dim
 depends on `num_classes`). Pass `prefix` to address a backbone nested
 inside a larger `@compact` model. Pass `in_chans != 3` to adapt the
-released 3-channel stem weight to the requested input channel count
-via [`adapt_input_conv`](@ref), matching timm's behaviour.
+released 3-channel stem weight to the requested input channel count,
+matching timm's behaviour.
 
 Assumes the state dict was loaded with `load_safetensors_state_dict`
 (default `reverse_axes=true`) or read from a parity HDF5 fixture: both
@@ -281,8 +281,8 @@ classifier is loaded only when `num_classes` matches the variant's
   classifier is left at its `Lux.setup` random initialization.
 
 When `in_chans != 3`, the stem weight is adapted from the released
-3-channel checkpoint via [`adapt_input_conv`](@ref), matching timm's
-`adapt_input_conv` behaviour at load time.
+3-channel checkpoint, matching timm's `adapt_input_conv` behaviour at
+load time.
 """
 function _load_convnextv2(ps, st, variant::Symbol;
         in_chans::Int, num_classes::Int,

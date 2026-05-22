@@ -81,6 +81,8 @@ me to work on and open-source the project.
 
 [docs]: https://csvance.github.io/Jimm.jl/
 
+[docs-getting-started]: https://csvance.github.io/Jimm.jl/dev/getting_started/
+
 [medicalmetrics]: https://medicalmetrics.com/
 
 [license-apache2]: https://www.apache.org/licenses/LICENSE-2.0

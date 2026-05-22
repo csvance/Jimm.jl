@@ -70,18 +70,6 @@ function hf_hub_cache_dir()
 end
 
 """
-    default_cache_dir() -> String
-
-Deprecated. Alias for [`hf_hub_cache_dir`](@ref). Older Jimm builds
-used a `jimm`-only scratchspace inside the Julia depot; that location
-did not share weights with `timm` or `huggingface_hub`, so the default
-moved to the standard HF cache. Callers that need an isolated cache
-should pass `cache_dir = ...` explicitly to
-`create_pretrained` / `hf_hub_download`.
-"""
-default_cache_dir() = hf_hub_cache_dir()
-
-"""
     hf_hub_download(repo_id, filename; revision="main",
                      cache_dir=hf_hub_cache_dir(),
                      repo_type="model") -> String
