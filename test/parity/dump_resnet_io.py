@@ -54,6 +54,9 @@ def run_one(
     seed: int = 0,
     in_chans: int = 3,
 ) -> None:
+    if os.path.exists(out_path):
+        print(f"[{short_key}] cached at {out_path}; skipping")
+        return
     print(f"[{short_key}] building timm model {full_name!r} "
           f"(in_chans={in_chans}) ...")
     model = timm.create_model(full_name, pretrained=True, in_chans=in_chans).eval()

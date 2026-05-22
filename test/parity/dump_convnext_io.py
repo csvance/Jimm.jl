@@ -97,6 +97,9 @@ def run_one(
     seed: int = 0,
     in_chans: int | None = None,
 ) -> None:
+    if os.path.exists(out_path):
+        print(f"[{short_key}] cached at {out_path}; skipping")
+        return
     has_head = HAS_HEAD[short_key]
     # When in_chans is None (default), use the variant's native channel count
     # from default_cfg. When set explicitly, pass it to timm.create_model so
