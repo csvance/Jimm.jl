@@ -45,6 +45,7 @@ using Jimm, Lux, Random
 model, load = create_pretrained(:resnet50_a1_in1k)
 ps, st = Lux.setup(Xoshiro(0), model)
 ps, st = load(ps, st)
+st = Lux.testmode(st)                     # BatchNorm/Dropout in eval mode
 
 x = randn(Float32, 224, 224, 3, 1)
 logits, _ = model(x, ps, st)              # (1000, 1)
