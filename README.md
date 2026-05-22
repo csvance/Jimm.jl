@@ -3,8 +3,8 @@
 </p>
 <div align="center">
 
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://csvance.github.io/Jimm.jl/dev/)
-[![CI](https://img.shields.io/github/checks-status/csvance/Jimm.jl/master?label=CI)](https://github.com/csvance/Jimm.jl/commits/master)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://csvance.github.io/Luximm.jl/dev/)
+[![CI](https://img.shields.io/github/checks-status/csvance/Luximm.jl/master?label=CI)](https://github.com/csvance/Luximm.jl/commits/master)
 
 </div>
 
@@ -14,7 +14,7 @@ in `.safetensors` format. The name is an homage to the project we port from.
 
 ## Status
 
-Most of Jimm was written by AI agents driving the porting workflow
+Most of Luximm was written by AI agents driving the porting workflow
 encoded in `.claude/skills/timm-to-lux/`, with human review at each
 phase and the parity tests as the correctness backstop. The code is
 already being used in real projects, so the registered backbones work
@@ -36,7 +36,7 @@ input shapes). File issues and PRs.
 ## Basic usage
 
 ```julia
-using Jimm, Lux, Random
+using Luximm, Lux, Random
 
 # ResNet50 with the trained 1000-class ImageNet head.
 # `create_pretrained` is family-agnostic; the symbol selects the family.
@@ -60,7 +60,7 @@ feature-extractor mode (`num_classes = 0`), single-channel inputs
 
 ## License and attribution
 
-Jimm.jl is licensed under the Apache License, Version 2.0 (see
+Luximm.jl is licensed under the Apache License, Version 2.0 (see
 [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). The license matches upstream
 `timm`. The Julia code in this repository is original, but layer naming,
 hyperparameters, padding ordering, and `state_dict` key layout are
@@ -69,7 +69,7 @@ deliberately taken from `timm` so pretrained weights load directly.
 ## Acknowledgements
 
 Thanks to Ross Wightman for `timm`, to [HuggingFace][huggingface] for
-hosting the `.safetensors` weights that Jimm.jl loads at runtime, to
+hosting the `.safetensors` weights that Luximm.jl loads at runtime, to
 the Julia ML ecosystem maintainers whose work makes a port like this
 plausible, and to [Medical Metrics Inc.][medicalmetrics] for allowing
 me to work on and open-source the project.
@@ -80,17 +80,17 @@ me to work on and open-source the project.
 
 [lux]: https://lux.csail.mit.edu/
 
-[docs]: https://csvance.github.io/Jimm.jl/
+[docs]: https://csvance.github.io/Luximm.jl/
 
-[docs-getting-started]: https://csvance.github.io/Jimm.jl/dev/getting_started/
+[docs-getting-started]: https://csvance.github.io/Luximm.jl/dev/getting_started/
 
-[prefix-resnet]: https://csvance.github.io/Jimm.jl/dev/api/models/#ResNet
+[prefix-resnet]: https://csvance.github.io/Luximm.jl/dev/api/models/#ResNet
 
-[prefix-bit]: https://csvance.github.io/Jimm.jl/dev/api/models/#BiT-ResNetV2
+[prefix-bit]: https://csvance.github.io/Luximm.jl/dev/api/models/#BiT-ResNetV2
 
-[prefix-convnext]: https://csvance.github.io/Jimm.jl/dev/api/models/#ConvNeXt
+[prefix-convnext]: https://csvance.github.io/Luximm.jl/dev/api/models/#ConvNeXt
 
-[prefix-convnextv2]: https://csvance.github.io/Jimm.jl/dev/api/models/#ConvNeXt-V2
+[prefix-convnextv2]: https://csvance.github.io/Luximm.jl/dev/api/models/#ConvNeXt-V2
 
 [medicalmetrics]: https://medicalmetrics.com/
 

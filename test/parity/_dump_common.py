@@ -1,4 +1,4 @@
-"""Shared helpers for Jimm.jl parity dump sidecars.
+"""Shared helpers for Luximm.jl parity dump sidecars.
 
 Vendored from MMILux.jl/test/parity/_dump_common.py and kept byte-identical
 so that the `timm-to-lux` skill's Python snippets apply unchanged.
@@ -9,7 +9,7 @@ Each dump script writes a single HDF5 file containing:
     /output             dataset OR group with one dataset per named output
     /state_dict/<key>   dataset per PyTorch state_dict entry
 
-The Julia side reads these via Jimm.Interop.read_parity.
+The Julia side reads these via Luximm.Interop.read_parity.
 """
 
 from __future__ import annotations

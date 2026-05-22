@@ -1,5 +1,5 @@
 ```@meta
-CurrentModule = Jimm
+CurrentModule = Luximm
 ```
 
 # Models
@@ -36,7 +36,7 @@ default_num_classes
 Each family exports its variant config struct and the
 `<FAMILY>_VARIANTS` registry dict. The remaining family internals
 (per-family constructors, weight mappings, state mappings) live in
-`Jimm.Models.*` for callers who need to escape the
+`Luximm.Models.*` for callers who need to escape the
 `create_pretrained` / `create_model` front door.
 
 ## ResNet
@@ -49,8 +49,8 @@ RESNET_VARIANTS
 ### Registered variants
 
 ```@eval
-using Markdown, Jimm
-rows = sort(collect(Jimm.RESNET_VARIANTS); by = p -> String(first(p)))
+using Markdown, Luximm
+rows = sort(collect(Luximm.RESNET_VARIANTS); by = p -> String(first(p)))
 io = IOBuffer()
 println(io, "| Variant | num_classes | num_features | input size |")
 println(io, "|:---|---:|---:|---:|")
@@ -70,8 +70,8 @@ BIT_VARIANTS
 ### Registered variants
 
 ```@eval
-using Markdown, Jimm
-rows = sort(collect(Jimm.BIT_VARIANTS); by = p -> String(first(p)))
+using Markdown, Luximm
+rows = sort(collect(Luximm.BIT_VARIANTS); by = p -> String(first(p)))
 io = IOBuffer()
 println(io, "| Variant | num_classes | num_features | input size |")
 println(io, "|:---|---:|---:|---:|")
@@ -102,8 +102,8 @@ CONVNEXT_VARIANTS
 ### Registered variants
 
 ```@eval
-using Markdown, Jimm
-rows = sort(collect(Jimm.CONVNEXT_VARIANTS); by = p -> String(first(p)))
+using Markdown, Luximm
+rows = sort(collect(Luximm.CONVNEXT_VARIANTS); by = p -> String(first(p)))
 io = IOBuffer()
 println(io, "| Variant | num_classes | num_features | input size |")
 println(io, "|:---|---:|---:|---:|")
@@ -125,15 +125,15 @@ CONVNEXTV2_VARIANTS
     [Creative Commons Attribution-NonCommercial 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
     **Commercial use of these weights is not permitted.** This applies
     to every row in the variant table below and is independent of
-    Jimm.jl's own Apache 2.0 code license. If commercial use matters,
+    Luximm.jl's own Apache 2.0 code license. If commercial use matters,
     BiT (Apache 2.0) or the ConvNeXt v1 `.fb_*` checkpoints (Apache 2.0)
     are the alternatives.
 
 ### Registered variants
 
 ```@eval
-using Markdown, Jimm
-rows = sort(collect(Jimm.CONVNEXTV2_VARIANTS); by = p -> String(first(p)))
+using Markdown, Luximm
+rows = sort(collect(Luximm.CONVNEXTV2_VARIANTS); by = p -> String(first(p)))
 io = IOBuffer()
 println(io, "| Variant | num_classes | num_features | input size |")
 println(io, "|:---|---:|---:|---:|")

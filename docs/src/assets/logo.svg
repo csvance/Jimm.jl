@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 200" role="img" aria-label="Jimm.jl logo">
-  <title>Jimm.jl</title>
-  <desc>Jimm.jl logo: three isometric cubes in Julia's red, green, and purple — representing the three channels of an image tensor — arranged in a triangle, set beside the Jimm.jl wordmark in matching Julia colors.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 200" role="img" aria-label="Luximm.jl logo">
+  <title>Luximm.jl</title>
+  <desc>Luximm.jl logo: three isometric cubes in Julia's red, green, and purple — representing the three channels of an image tensor — arranged in a triangle, set beside the Luximm.jl wordmark in matching Julia colors.</desc>
 
   <defs>
     <!-- Larger isometric cubes for the standalone mark. Edge ~46, dx=40, dy=23. -->
@@ -39,10 +39,10 @@
   <!-- ====== WORDMARK ======
        One text element so all glyphs flow with the font's natural metrics. The
        separator is the convolution operator ∗ (U+2217 ASTERISK OPERATOR), which is
-       the defining operation of convnets — a tighter fit for Jimm.jl than a plain dot.
+       the defining operation of convnets — a tighter fit for Luximm.jl than a plain dot.
 
        Color plan (each glyph outlined to match the cubes' stroke language):
-         Jimm  → Julia purple (#9558B2) / stroke #3D1F55
+         Luximm  → Julia purple (#9558B2) / stroke #3D1F55
          ∗     → neutral gray (#7A8294) / stroke #3A4252
          j     → Julia red    (#CB3C33) / stroke #5A130F
          l     → Julia green  (#389826) / stroke #143E0D

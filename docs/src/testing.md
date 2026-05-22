@@ -1,10 +1,10 @@
 ```@meta
-CurrentModule = Jimm
+CurrentModule = Luximm
 ```
 
 # Testing
 
-Jimm's correctness story rests on parity tests: for every registered
+Luximm's correctness story rests on parity tests: for every registered
 variant, the Julia forward must match `timm`'s forward on the same
 input and weights. The bar is two-tier:
 
@@ -108,7 +108,7 @@ Fixtures live in `data/parity/` and follow the naming convention
 single-channel variants). The directory is gitignored; fixtures are
 not redistributed.
 
-The Julia side consumes fixtures via `Jimm.Interop.read_parity`, which
+The Julia side consumes fixtures via `Luximm.Interop.read_parity`, which
 returns a NamedTuple `(input, state_dict, output)` with all arrays
 already axis-reversed from PyTorch NCHW into Lux's WHCN layout. The
 mapping function for the family then routes each state-dict key
@@ -171,7 +171,7 @@ Hosted CI runners would re-download and re-generate that material
 on every run; a self-hosted machine with a persistent state
 directory hits the cache instead.
 
-See [`ci/README.md`](https://github.com/csvance/Jimm.jl/blob/master/ci/README.md)
+See [`ci/README.md`](https://github.com/csvance/Luximm.jl/blob/master/ci/README.md)
 for the full deployment story (App registration, secrets layout,
 the TUI keybindings, and how PR runs map paths to test families).
 The short version, from a contributor's perspective:
