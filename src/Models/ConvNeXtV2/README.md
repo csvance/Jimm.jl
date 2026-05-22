@@ -52,8 +52,7 @@ using Jimm, Lux, Random
 model = convnextv2(:convnextv2_atto_fcmae_ft_in1k;
                    in_chans = 3, num_classes = 1000)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps = load_convnextv2_pretrained(ps, :convnextv2_atto_fcmae_ft_in1k;
-                                num_classes = 1000)
+ps, st = load_convnextv2_pretrained(ps, st, :convnextv2_atto_fcmae_ft_in1k)
 x = randn(Float32, 224, 224, 3, 1)
 logits, _ = model(x, ps, st)              # (1000, 1)
 ```

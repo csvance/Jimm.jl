@@ -37,9 +37,11 @@ input shapes). File issues and PRs.
 using Jimm, Lux, Random
 
 # ResNet50 with the trained 1000-class ImageNet head.
-model = resnet(:resnet50_a1_in1k; num_classes = 1000)
+# `create_model` + `load_pretrained` are family-agnostic; the symbol
+# selects the family.
+model = create_model(:resnet50_a1_in1k; num_classes = 1000)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps = load_resnet_pretrained(ps, :resnet50_a1_in1k; num_classes = 1000)
+ps, st = load_pretrained(ps, st, :resnet50_a1_in1k)
 
 x = randn(Float32, 224, 224, 3, 1)
 logits, _ = model(x, ps, st)          # (1000, 1)

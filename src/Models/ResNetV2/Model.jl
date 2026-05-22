@@ -191,11 +191,12 @@ end
 # -- Pretrained-weight loading -------------------------------------------
 
 """
-    bit_resnetv2_mapping(state_dict, variant; num_classes=0, prefix=()) -> Vector
+    bit_resnetv2_mapping(state_dict, variant;
+                          load_classifier=false, in_chans=3, prefix=()) -> Vector
 
 Build the `(pytorch_key, lux_path, transform)` triples that move a timm
 `resnetv2_<variant>_bit` state_dict into the Lux tree produced by
-[`bit_resnetv2`](@ref). When `num_classes > 0`, the head keys
+[`bit_resnetv2`](@ref). When `load_classifier=true`, the head keys
 (`head.fc.weight`, `head.fc.bias`) are also mapped. Pass `prefix` to
 address a backbone nested inside a larger `@compact` model (e.g.
 `prefix = (:backbone,)`). Suitable for `apply_state_dict`.
@@ -206,7 +207,7 @@ deliver conv weights in `(kW, kH, in, out)` order, which is Lux's `Conv`
 layout, so the `identity` transform is correct for every leaf.
 """
 function bit_resnetv2_mapping(state_dict::Dict, variant::Symbol;
-        num_classes::Int = 0,
+        load_classifier::Bool = false,
         in_chans::Int = 3,
         prefix::Tuple{Vararg{Symbol}} = ())
     cfg = get(BIT_VARIANTS, variant) do
@@ -251,7 +252,7 @@ function bit_resnetv2_mapping(state_dict::Dict, variant::Symbol;
     push!(mapping, ("norm.weight", (prefix..., :final_norm, :gn, :scale), identity))
     push!(mapping, ("norm.bias",   (prefix..., :final_norm, :gn, :bias),  identity))
 
-    if num_classes > 0
+    if load_classifier
         push!(mapping, ("head.fc.weight",
                         (prefix..., :head_fc, :weight), identity))
         push!(mapping, ("head.fc.bias",
@@ -266,30 +267,34 @@ function bit_resnetv2_mapping(state_dict::Dict, variant::Symbol;
 end
 
 """
-    load_bit_resnetv2_pretrained(ps, variant; num_classes=0,
-                                  revision="main",
+    load_bit_resnetv2_pretrained(ps, st, variant; revision="main",
                                   cache_dir=hf_hub_cache_dir(),
-                                  prefix=()) -> ps
+                                  prefix=()) -> (ps, st)
 
 Resolve `model.safetensors` for `variant` on HuggingFace (cached on
 disk under the standard HF Hub layout, so the same blob is shared
 with any `timm` / `huggingface_hub` install on the machine), load it
 via `load_safetensors_state_dict`, and rebuild `ps` with the BiT
-weights applied at `ps.<prefix...>`.
+weights applied at `ps.<prefix...>`. `st` is returned unchanged
+(GroupNorm has no running statistics); the uniform `(ps, st)` shape
+mirrors the other family loaders.
 
-When `num_classes = 0`, only the backbone is populated (head keys are
-ignored, suitable for a model built with `num_classes = 0`). When
-`num_classes > 0`, the head is populated as well; `num_classes` must
-equal the variant's `default_num_classes` (21843 for `goog_in21k`),
-since the released weights match only that head dimension.
+`in_chans` and `num_classes` are inferred from `ps`. Three cases:
+
+- No `head_fc` slot (model built with `num_classes = 0`): backbone-only
+  load, returns a feature extractor.
+- `head_fc` matches the variant's `default_num_classes`: full load,
+  including classifier.
+- `head_fc` exists but its class count differs from `default_num_classes`:
+  the backbone is loaded and a `@warn` is emitted; the user's custom
+  classifier is left at its `Lux.setup` random initialization for them
+  to train.
 
 `revision` selects a branch / tag / commit on the HF repo; defaults
 to `"main"`. `cache_dir` defaults to the same root `huggingface_hub`
 uses (`HF_HUB_CACHE` → `\$HF_HOME/hub` → `~/.cache/huggingface/hub`).
 """
-function load_bit_resnetv2_pretrained(ps, variant::Symbol;
-        num_classes::Int = 0,
-        in_chans::Int = 3,
+function load_bit_resnetv2_pretrained(ps, st, variant::Symbol;
         revision::AbstractString = "main",
         cache_dir::AbstractString = hf_hub_cache_dir(),
         prefix::Tuple{Vararg{Symbol}} = ())
@@ -297,18 +302,22 @@ function load_bit_resnetv2_pretrained(ps, variant::Symbol;
         error("Unknown BiT variant: $variant. Known variants: " *
               "$(sort(collect(keys(BIT_VARIANTS))))")
     end
-    if num_classes != 0 && num_classes != cfg.default_num_classes
-        error("variant $variant ships $(cfg.default_num_classes)-class weights; " *
-              "got num_classes=$num_classes. Pass num_classes=0 (features only) " *
-              "or num_classes=$(cfg.default_num_classes), or build a custom head " *
-              "and load the backbone separately.")
+    sub = _navigate(ps, prefix)
+    in_chans = size(sub.stem_conv.conv.weight, 3)
+    head_classes = haskey(sub, :head_fc) ? size(sub.head_fc.weight, 4) : 0
+    load_classifier = head_classes > 0 && head_classes == cfg.default_num_classes
+    if head_classes > 0 && head_classes != cfg.default_num_classes
+        @warn "variant $variant ships $(cfg.default_num_classes)-class pretrained weights, " *
+              "but the model has a $head_classes-class head. Loading the backbone only; " *
+              "the classifier head is left at its Lux.setup random initialization for you to train."
     end
     path = hf_hub_download(cfg.hf_repo, "model.safetensors";
                             revision = revision, cache_dir = cache_dir)
     sd = load_safetensors_state_dict(path)
-    return apply_state_dict(ps, sd,
-                            bit_resnetv2_mapping(sd, variant;
-                                                  num_classes = num_classes,
-                                                  in_chans = in_chans,
-                                                  prefix = prefix))
+    ps = apply_state_dict(ps, sd,
+                          bit_resnetv2_mapping(sd, variant;
+                                                load_classifier = load_classifier,
+                                                in_chans = in_chans,
+                                                prefix = prefix))
+    return ps, st
 end

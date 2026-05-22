@@ -48,10 +48,9 @@ resnet_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
             expected_logits = fixture.output["logits"]
 
             @testset "forward_features" begin
-                model = resnet(variant; in_chans = 3, num_classes = 0)
+                model = create_model(variant; in_chans = 3, num_classes = 0)
                 ps, st = Lux.setup(Xoshiro(0), model)
-                ps, st = load_resnet_pretrained(ps, st, variant;
-                                                num_classes = 0)
+                ps, st = load_pretrained(ps, st, variant)
                 st = Lux.testmode(st)
                 y, _ = model(x, ps, st)
                 @test size(y) == size(expected_features)
@@ -64,11 +63,10 @@ resnet_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
 
             @testset "forward (logits)" begin
                 cfg = Jimm.RESNET_VARIANTS[variant]
-                model = resnet(variant; in_chans = 3,
+                model = create_model(variant; in_chans = 3,
                                num_classes = cfg.default_num_classes)
                 ps, st = Lux.setup(Xoshiro(0), model)
-                ps, st = load_resnet_pretrained(ps, st, variant;
-                                                num_classes = cfg.default_num_classes)
+                ps, st = load_pretrained(ps, st, variant)
                 st = Lux.testmode(st)
                 y, _ = model(x, ps, st)
                 @test size(y) == size(expected_logits)
@@ -85,11 +83,9 @@ resnet_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
                 @testset "forward_features (in_chans=1)" begin
                     x1 = fixture_in1c.input
                     expected1 = fixture_in1c.output["features"]
-                    model = resnet(variant; in_chans = 1, num_classes = 0)
+                    model = create_model(variant; in_chans = 1, num_classes = 0)
                     ps, st = Lux.setup(Xoshiro(0), model)
-                    ps, st = load_resnet_pretrained(ps, st, variant;
-                                                    num_classes = 0,
-                                                    in_chans = 1)
+                    ps, st = load_pretrained(ps, st, variant)
                     st = Lux.testmode(st)
                     y, _ = model(x1, ps, st)
                     @test size(y) == size(expected1)

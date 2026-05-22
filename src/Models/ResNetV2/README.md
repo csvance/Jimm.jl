@@ -40,10 +40,18 @@ using Jimm, Lux, Random
 model = bit_resnetv2(:resnetv2_50x1_bit_goog_in21k;
                      in_chans = 3, num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps = load_bit_resnetv2_pretrained(ps, :resnetv2_50x1_bit_goog_in21k;
-                                   num_classes = 0)
+ps, st = load_bit_resnetv2_pretrained(ps, st, :resnetv2_50x1_bit_goog_in21k)
 x = randn(Float32, 224, 224, 3, 1)
 features, _ = model(x, ps, st)            # (7, 7, 2048, 1)
+```
+
+The family-agnostic `create_model` / `load_pretrained` entry points
+(documented in the top-level [`Models`](@ref) page) work identically:
+
+```julia
+model = create_model(:resnetv2_50x1_bit_goog_in21k; num_classes = 0)
+ps, st = Lux.setup(Xoshiro(0), model)
+ps, st = load_pretrained(ps, st, :resnetv2_50x1_bit_goog_in21k)
 ```
 
 ## License

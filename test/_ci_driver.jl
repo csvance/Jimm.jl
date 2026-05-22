@@ -65,6 +65,8 @@ function _scaffold_testset()
         @test isdefined(Jimm.Models, :convnext_mapping)
         @test isdefined(Jimm.Models, :load_convnext_pretrained)
         @test isdefined(Jimm.Models, :CONVNEXT_VARIANTS)
+        @test isdefined(Jimm.Models, :create_model)
+        @test isdefined(Jimm.Models, :load_pretrained)
     end
 end
 

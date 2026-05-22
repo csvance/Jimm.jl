@@ -36,9 +36,12 @@ setup.
 ```julia
 using Jimm, Lux, Random
 
-model = resnet(:resnet50_a1_in1k; num_classes = 1000)
+# `create_model` / `load_pretrained` are family-agnostic; the symbol
+# selects the family. The per-family entry points (`resnet`,
+# `load_resnet_pretrained`, etc.) work identically.
+model = create_model(:resnet50_a1_in1k; num_classes = 1000)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps = load_resnet_pretrained(ps, :resnet50_a1_in1k; num_classes = 1000)
+ps, st = load_pretrained(ps, st, :resnet50_a1_in1k)
 
 x = randn(Float32, 224, 224, 3, 1)
 logits, _ = model(x, ps, st)              # (1000, 1)
@@ -53,9 +56,15 @@ A few things worth noting in the snippet:
   underscore. The full name with the dot is at
   `RESNET_VARIANTS[:resnet50_a1_in1k].hf_repo`.
 - `Lux.setup` produces a `ps` (parameters) and `st` (state)
-  NamedTuple. `load_resnet_pretrained` returns a new `ps` with the
-  HuggingFace weights merged in; the `st` from `Lux.setup` is reused
-  as-is for inference.
+  NamedTuple. `load_pretrained` (and the per-family
+  `load_<family>_pretrained`) returns a new `(ps, st)` with the
+  HuggingFace weights merged in. Stateless families (BiT, ConvNeXt,
+  ConvNeXtV2) return `st` unchanged; ResNet merges BatchNorm running
+  statistics into `st`.
+- The three-step pattern (`create_model` → `Lux.setup` → `load_pretrained`)
+  is the canonical one. It composes cleanly when the backbone is
+  nested inside a larger model — see [Composing into a larger
+  model](#composing-into-a-larger-model) below.
 - The input is shaped `(W, H, C, N)`, Lux's convention. PyTorch's
   `(N, C, H, W)` is read-reversed at load time so most weights land
   in the layout Lux expects directly.
@@ -75,9 +84,9 @@ the post-stage feature map back instead of logits. This matches
 `timm.create_model(..., num_classes=0).forward_features(x)`:
 
 ```julia
-model = resnet(:resnet50_a1_in1k; num_classes = 0)
+model = create_model(:resnet50_a1_in1k; num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps = load_resnet_pretrained(ps, :resnet50_a1_in1k; num_classes = 0)
+ps, st = load_pretrained(ps, st, :resnet50_a1_in1k)
 
 x = randn(Float32, 224, 224, 3, 1)
 features, _ = model(x, ps, st)            # (7, 7, 2048, 1)
@@ -94,17 +103,16 @@ without carrying around the 1000-class classifier that the
 
 ## Single-channel and other non-RGB inputs
 
-Pass the same `in_chans` to both the constructor and the loader. The
-loader adapts the released 3-channel stem weight via
-[`adapt_input_conv`](@ref), matching timm's `adapt_input_conv`
-semantics: it sums across input channels for `in_chans = 1`, or tiles
-and rescales by `3 / in_chans` for other counts.
+Pass `in_chans` to `create_model`. `load_pretrained` reads the stem
+shape from `ps` and adapts the released 3-channel weight via
+[`adapt_input_conv`](@ref) automatically — matching timm's
+`adapt_input_conv` semantics: sum across input channels for
+`in_chans = 1`, tile and rescale by `3 / in_chans` for other counts.
 
 ```julia
-model = convnextv2(:convnextv2_atto_fcmae; in_chans = 1, num_classes = 0)
+model = create_model(:convnextv2_atto_fcmae; in_chans = 1, num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps = load_convnextv2_pretrained(ps, :convnextv2_atto_fcmae;
-                                num_classes = 0, in_chans = 1)
+ps, st = load_pretrained(ps, st, :convnextv2_atto_fcmae)
 
 x = randn(Float32, 224, 224, 1, 1)
 features, _ = model(x, ps, st)            # (7, 7, 320, 1)
@@ -114,14 +122,43 @@ This is the right path for grayscale medical or scientific imagery,
 where collapsing the RGB stem is preferable to repeating the
 single-channel input three times.
 
+## Composing into a larger model
+
+`create_model` returns a bare `@compact` model with no parameters, so
+you can drop it into an outer `@compact` block and let one
+`Lux.setup` cover the whole composed tree. `load_pretrained` then
+fills only the backbone slot via `prefix`, leaving sibling layers
+(your custom head, additional towers, etc.) at their random init:
+
+```julia
+outer = @compact(
+    backbone = create_model(:resnet50_a1_in1k; num_classes = 0),
+    head     = Dense(2048 => num_outputs),
+) do x
+    head(backbone(x))
+end
+
+ps, st = Lux.setup(Xoshiro(0), outer)
+ps, st = load_pretrained(ps, st, :resnet50_a1_in1k; prefix = (:backbone,))
+```
+
+The mapping function prefixes every leaf path with `prefix...`, so
+`apply_state_dict` overwrites just the `ps.backbone.*` and `st.backbone.*`
+subtrees. Anything you added (`:head`, sibling slots, deeper nestings)
+keeps its `Lux.setup` initialization. Deeper nestings chain symbols:
+`prefix = (:encoder, :backbone)`.
+
 ## Switching families
 
-Every family follows the same three-call pattern:
+The `create_model` / `load_pretrained` dispatch above already covers
+every family by symbol — no separate calls per family needed. The
+per-family entry points exist for callers who already know the family
+or who want to reach for family-specific kwargs explicitly:
 
 ```julia
 model = <family>(variant; in_chans, num_classes)
 ps, st = Lux.setup(rng, model)
-ps = load_<family>_pretrained(ps, variant; num_classes, in_chans)
+ps, st = load_<family>_pretrained(ps, st, variant)
 ```
 
 The constructors and loaders for each family are:

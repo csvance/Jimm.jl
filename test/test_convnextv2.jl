@@ -104,10 +104,10 @@ convnextv2_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
 
             # features mode: num_classes = 0
             @testset "forward_features" begin
-                model = convnextv2(variant; in_chans = 3, num_classes = 0)
+                model = create_model(variant; in_chans = 3, num_classes = 0)
                 ps, st = Lux.setup(Xoshiro(0), model)
                 st = Lux.testmode(st)
-                ps = load_convnextv2_pretrained(ps, variant; num_classes = 0)
+                ps, st = load_pretrained(ps, st, variant)
                 y, _ = model(x, ps, st)
                 @test size(y) == size(expected_features)
                 diff = maximum(abs.(y .- expected_features))
@@ -121,13 +121,12 @@ convnextv2_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
             if cfg.default_num_classes > 0 && haskey(fixture.output, "logits")
                 expected_logits = fixture.output["logits"]
                 @testset "forward (logits)" begin
-                    model = convnextv2(variant;
+                    model = create_model(variant;
                                        in_chans = 3,
                                        num_classes = cfg.default_num_classes)
                     ps, st = Lux.setup(Xoshiro(0), model)
                     st = Lux.testmode(st)
-                    ps = load_convnextv2_pretrained(ps, variant;
-                                                    num_classes = cfg.default_num_classes)
+                    ps, st = load_pretrained(ps, st, variant)
                     y, _ = model(x, ps, st)
                     @test size(y) == size(expected_logits)
                     diff = maximum(abs.(y .- expected_logits))
@@ -139,8 +138,8 @@ convnextv2_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
             # in_chans=1 parity: requires a separate fixture dumped from timm
             # with the model built using in_chans=1 (timm's adapt_input_conv
             # runs server-side at create_model time). The Julia side rebuilds
-            # the same adaptation via Jimm's adapt_input_conv plumbed through
-            # load_convnextv2_pretrained(...; in_chans=1).
+            # the same adaptation via Jimm's adapt_input_conv, triggered by
+            # load_pretrained reading in_chans=1 from the model's stem weight.
             fixture_in1c = convnextv2_load_fixture(variant; in_chans = 1)
             if fixture_in1c === nothing
                 @info "skipping $(variant) in_chans=1: fixture missing at " *
@@ -149,12 +148,10 @@ convnextv2_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
                 @testset "forward_features (in_chans=1)" begin
                     x1 = fixture_in1c.input
                     expected1 = fixture_in1c.output["features"]
-                    model = convnextv2(variant; in_chans = 1, num_classes = 0)
+                    model = create_model(variant; in_chans = 1, num_classes = 0)
                     ps, st = Lux.setup(Xoshiro(0), model)
                     st = Lux.testmode(st)
-                    ps = load_convnextv2_pretrained(ps, variant;
-                                                    num_classes = 0,
-                                                    in_chans = 1)
+                    ps, st = load_pretrained(ps, st, variant)
                     y, _ = model(x1, ps, st)
                     @test size(y) == size(expected1)
                     diff = maximum(abs.(y .- expected1))

@@ -83,8 +83,7 @@ model = convnext(:convnext_tiny_dinov3_lvd1689m;
                   in_chans = 3, num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
 st = Lux.testmode(st)
-ps = load_convnext_pretrained(ps, :convnext_tiny_dinov3_lvd1689m;
-                                num_classes = 0)
+ps, st = load_convnext_pretrained(ps, st, :convnext_tiny_dinov3_lvd1689m)
 x = randn(Float32, 224, 224, 3, 1)
 features, _ = model(x, ps, st)            # (7, 7, 768, 1)
 
@@ -93,8 +92,7 @@ model = convnext(:convnext_tiny_fb_in22k_ft_in1k;
                   in_chans = 3, num_classes = 1000)
 ps, st = Lux.setup(Xoshiro(0), model)
 st = Lux.testmode(st)
-ps = load_convnext_pretrained(ps, :convnext_tiny_fb_in22k_ft_in1k;
-                                num_classes = 1000)
+ps, st = load_convnext_pretrained(ps, st, :convnext_tiny_fb_in22k_ft_in1k)
 logits, _ = model(x, ps, st)              # (1000, 1)
 ```
 

@@ -15,7 +15,7 @@ using Jimm, Lux, Random
 
 model = resnet(:resnet18_a1_in1k; in_chans = 3, num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_resnet_pretrained(ps, st, :resnet18_a1_in1k; num_classes = 0)
+ps, st = load_resnet_pretrained(ps, st, :resnet18_a1_in1k)
 st = Lux.testmode(st)
 
 x = randn(Float32, 224, 224, 3, 1)

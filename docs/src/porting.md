@@ -20,7 +20,8 @@ ground for human contributors without those tools.
 A new backbone is mergeable when all four hold:
 
 1. **Pretrained parity.** Forward output of the Lux model with weights
-   loaded via `load_<family>_pretrained` matches `timm`'s forward
+   loaded via `load_<family>_pretrained` (or the family-agnostic
+   [`load_pretrained`](@ref)) matches `timm`'s forward
    output on the same input. The bar is two-tier: **logits** are
    checked at an absolute max-abs-diff under `LOGITS_ATOL = 1f-3`, and
    **features** (`num_classes = 0`, and the `in_chans = 1` companion)
@@ -221,9 +222,12 @@ that the first failed test cannot localize.
 
 ### Phase 5: Add the loader
 
-Each family exposes a `load_<family>_pretrained(ps, variant;
-num_classes, in_chans, revision, cache_dir, prefix)` function. The
-flow is identical across families:
+Each family exposes a `load_<family>_pretrained(ps, st, variant;
+num_classes, in_chans, revision, cache_dir, prefix) -> (ps, st)`
+function. All four share this signature: stateless families
+(BiT/ConvNeXt/ConvNeXtV2) take `st` and return it unchanged; ResNet
+mutates it to merge BatchNorm running stats. The flow is identical
+across families:
 
 1. Look up the variant in `<FAMILY>_VARIANTS`.
 2. Validate `num_classes` against `default_num_classes` (or allow 0
@@ -240,9 +244,13 @@ flow is identical across families:
    additionally apply the state dict to the model state via
    `<family>_state_mapping` and `apply_state_dict`.
 
+Once the variant is registered in `<FAMILY>_VARIANTS`, it is reachable
+through the family-agnostic [`load_pretrained`](@ref) and
+[`create_model`](@ref) dispatchers automatically — no extra wiring.
+
 Keep the constructor and the weight loading separate. The
 constructor returns a `@compact` block; the loader takes the result
-of `Lux.setup` and returns a new `ps`. Mixing the two inside
+of `Lux.setup` and returns a new `(ps, st)`. Mixing the two inside
 `@compact` makes the model unusable in tests that want a random
 init.
 

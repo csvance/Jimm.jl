@@ -172,16 +172,19 @@ _linear_to_conv1x1(w) = reshape(w, 1, 1, size(w, 1), size(w, 2))
 
 """
     convnext_mapping(state_dict, variant;
-                     num_classes=0, in_chans=3, prefix=()) -> Vector
+                     load_head_norm=false, load_classifier=false,
+                     in_chans=3, prefix=()) -> Vector
 
 Build the `(pytorch_key, lux_path, transform)` triples that move a timm
 `convnext_<variant>` (v1) state_dict into the Lux tree produced by
-[`convnext`](@ref). When `num_classes > 0`, the head keys
-(`head.norm.*`, `head.fc.*`) are also mapped; otherwise they're left to
-`apply_state_dict` to silently ignore. Pass `prefix` to address a backbone
-nested inside a larger `@compact` model. Pass `in_chans != 3` to adapt the
-released 3-channel stem weight to the requested input channel count via
-[`adapt_input_conv`](@ref).
+[`convnext`](@ref). The two head pieces are independent:
+`load_head_norm=true` adds the `head.norm.*` LayerNorm keys (whose dim
+depends on the feature width, not `num_classes`), and
+`load_classifier=true` adds the `head.fc.*` Dense keys (whose dim
+depends on `num_classes`). Pass `prefix` to address a backbone nested
+inside a larger `@compact` model. Pass `in_chans != 3` to adapt the
+released 3-channel stem weight to the requested input channel count
+via [`adapt_input_conv`](@ref).
 
 Conv weights and 1D vectors arrive in their Lux-natural layout already
 (via `load_safetensors_state_dict`'s default axis reversal, or `read_parity`
@@ -193,7 +196,8 @@ we reshape to `(1, 1, in, out)` to land in a Lux `Conv((1,1))`; (b)
 transpose back to `(out, in)`.
 """
 function convnext_mapping(state_dict::Dict, variant::Symbol;
-        num_classes::Int = 0,
+        load_head_norm::Bool = false,
+        load_classifier::Bool = false,
         in_chans::Int = 3,
         prefix::Tuple{Vararg{Symbol}} = ())
     cfg = get(CONVNEXT_VARIANTS, variant) do
@@ -248,8 +252,11 @@ function convnext_mapping(state_dict::Dict, variant::Symbol;
         end
     end
 
-    if num_classes > 0
-        push_head_mapping!(mapping, prefix)
+    if load_head_norm
+        push_head_norm_mapping!(mapping, prefix)
+    end
+    if load_classifier
+        push_head_fc_mapping!(mapping, prefix)
     end
 
     for (pykey, _, _) in mapping
@@ -260,35 +267,46 @@ function convnext_mapping(state_dict::Dict, variant::Symbol;
 end
 
 """
-    load_convnext_pretrained(ps, variant; num_classes=0, in_chans=3,
-                             revision="main",
+    load_convnext_pretrained(ps, st, variant; revision="main",
                              cache_dir=hf_hub_cache_dir(),
-                             prefix=()) -> ps
+                             prefix=()) -> (ps, st)
 
 Resolve `model.safetensors` for `variant` on HuggingFace (cached on disk
 under the standard HF Hub layout, so the same blob is shared with any
 `timm` / `huggingface_hub` install on the machine), load it via
 `load_safetensors_state_dict`, and rebuild `ps` with the ConvNeXt v1
-weights applied at `ps.<prefix...>`.
+weights applied at `ps.<prefix...>`. `st` is returned unchanged
+(LayerNorm has no running statistics); the uniform `(ps, st)` shape
+mirrors the other family loaders.
 
-When `num_classes = 0`, only the backbone is populated. When
-`num_classes > 0`, the head is populated as well; `num_classes` must equal
-the variant's `default_num_classes`. The four DINOv3 variants registered
-in [`CONVNEXT_VARIANTS`](@ref) all have `default_num_classes = 0`, so the
-head path is not exercised by them.
+`in_chans` and head presence/shape are inferred from `ps`. The
+ConvNeXt head bundles a LayerNorm (`head_norm`) and a Dense classifier
+(`head_fc`). The LayerNorm is always loaded if it exists in `ps`,
+since its dim depends only on the feature width, not `num_classes`.
+The classifier is loaded only when its class count matches the
+variant's `default_num_classes`. Three cases:
 
-Pass `in_chans` to match the value used when constructing the model. When
-`in_chans != 3`, the stem weight is adapted from the released 3-channel
-checkpoint via [`adapt_input_conv`](@ref), matching timm's
-`adapt_input_conv` behaviour at load time.
+- No `head_fc` slot (model built with `num_classes = 0`): backbone-only
+  feature extractor.
+- `head_fc` matches `default_num_classes`: full load including
+  classifier.
+- `head_fc` exists but class count differs: backbone + `head_norm`
+  load, `@warn` is emitted, and the user's custom classifier is left
+  at its `Lux.setup` random initialization.
+
+The four DINOv3 variants registered in [`CONVNEXT_VARIANTS`](@ref)
+all have `default_num_classes = 0` and ship no pretrained head; any
+custom classifier the user adds will trigger the warning case.
+
+When the introspected `in_chans != 3`, the stem weight is adapted from
+the released 3-channel checkpoint via [`adapt_input_conv`](@ref),
+matching timm's `adapt_input_conv` behaviour at load time.
 
 `revision` selects a branch / tag / commit on the HF repo; defaults to
 `"main"`. `cache_dir` defaults to the same root `huggingface_hub` uses
 (`HF_HUB_CACHE` → `\$HF_HOME/hub` → `~/.cache/huggingface/hub`).
 """
-function load_convnext_pretrained(ps, variant::Symbol;
-        num_classes::Int = 0,
-        in_chans::Int = 3,
+function load_convnext_pretrained(ps, st, variant::Symbol;
         revision::AbstractString = "main",
         cache_dir::AbstractString = hf_hub_cache_dir(),
         prefix::Tuple{Vararg{Symbol}} = ())
@@ -296,18 +314,25 @@ function load_convnext_pretrained(ps, variant::Symbol;
         error("Unknown ConvNeXt variant: $variant. Known variants: " *
               "$(sort(collect(keys(CONVNEXT_VARIANTS))))")
     end
-    if num_classes != 0 && num_classes != cfg.default_num_classes
-        error("variant $variant ships $(cfg.default_num_classes)-class weights; " *
-              "got num_classes=$num_classes. Pass num_classes=0 (features only) " *
-              "or num_classes=$(cfg.default_num_classes), or build a custom head " *
-              "and load the backbone separately.")
+    sub = _navigate(ps, prefix)
+    in_chans = size(sub.stem_conv.weight, 3)
+    load_head_norm = haskey(sub, :head_norm)
+    head_classes = haskey(sub, :head_fc) ? size(sub.head_fc.weight, 1) : 0
+    load_classifier = head_classes > 0 && head_classes == cfg.default_num_classes
+    if head_classes > 0 && head_classes != cfg.default_num_classes
+        @warn "variant $variant ships $(cfg.default_num_classes)-class pretrained weights, " *
+              "but the model has a $head_classes-class head. Loading the backbone " *
+              "(and head_norm) only; the classifier is left at its Lux.setup random " *
+              "initialization for you to train."
     end
     path = hf_hub_download(cfg.hf_repo, "model.safetensors";
                             revision = revision, cache_dir = cache_dir)
     sd = load_safetensors_state_dict(path)
-    return apply_state_dict(ps, sd,
-                            convnext_mapping(sd, variant;
-                                              num_classes = num_classes,
-                                              in_chans = in_chans,
-                                              prefix = prefix))
+    ps = apply_state_dict(ps, sd,
+                          convnext_mapping(sd, variant;
+                                            load_head_norm = load_head_norm,
+                                            load_classifier = load_classifier,
+                                            in_chans = in_chans,
+                                            prefix = prefix))
+    return ps, st
 end
