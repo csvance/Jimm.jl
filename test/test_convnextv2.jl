@@ -18,7 +18,7 @@ using Lux
 using Random
 
 isdefined(@__MODULE__, :variant_filter) || include("_filter.jl")
-isdefined(@__MODULE__, :LOGITS_ATOL) || include("_parity_tol.jl")
+isdefined(@__MODULE__, :run_variant_parity) || include("_parity_helpers.jl")
 
 # Variant keys mirror the timm model name with the dot rewritten as an
 # underscore; must match CONVNEXTV2_VARIANTS keys and the sidecar's
@@ -62,105 +62,19 @@ const VARIANTS_TO_TEST = (
     :convnextv2_huge_fcmae_ft_in22k_in1k_512,
 )
 
-function convnextv2_fixture_path(variant::Symbol; in_chans::Int = 3)
-    suffix = in_chans == 3 ? "" : "_in$(in_chans)c"
-    base = get(ENV, "JIMM_PARITY_DIR", joinpath(@__DIR__, "..", "data", "parity"))
-    joinpath(base, "$(variant)$(suffix)_io.h5")
-end
-
-# The HDF5 fixture stores PyTorch-layout tensors; read_parity reverses axes
-# to Lux-natural (W, H, C, N). The timm features for ConvNeXtV2 land as
-# (W/32, H/32, dims[end], N) after the axis reverse, which is exactly Jimm's
-# output layout. Logits land as (K, N).
-function convnextv2_load_fixture(variant::Symbol; in_chans::Int = 3)
-    path = convnextv2_fixture_path(variant; in_chans = in_chans)
-    isfile(path) || return nothing
-    return Jimm.Interop.read_parity(path)
-end
-
-convnextv2_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
-
 @testset "ConvNeXtV2 parity" begin
     for variant in variant_filter(VARIANTS_TO_TEST)
         @testset "$(variant)" begin
-            fixture = convnextv2_load_fixture(variant)
+            fixture = load_parity_fixture(variant)
             if fixture === nothing
-                @info "skipping $variant: fixture missing at $(convnextv2_fixture_path(variant))"
+                @info "skipping $variant: fixture missing at $(parity_fixture_path(variant))"
                 continue
             end
-            if convnextv2_hf_offline()
+            if hf_offline()
                 @info "skipping $variant: HF_OFFLINE=1"
                 continue
             end
-
-            cfg = Jimm.CONVNEXTV2_VARIANTS[variant]
-            x = fixture.input
-            expected_features = fixture.output["features"]
-            # Input resolution is not asserted here: the model is fully
-            # convolutional and accepts any size, and the `_384` / `_512`
-            # checkpoints' fixtures use their native resolution. The shape
-            # checks on `y` against `expected_features` / `expected_logits`
-            # below already cover any size mismatch end-to-end.
-
-            # features mode: num_classes = 0
-            @testset "forward_features" begin
-                model = create_model(variant; in_chans = 3, num_classes = 0)
-                ps, st = Lux.setup(Xoshiro(0), model)
-                st = Lux.testmode(st)
-                ps, st = load_pretrained(ps, st, variant)
-                y, _ = model(x, ps, st)
-                @test size(y) == size(expected_features)
-                diff = maximum(abs.(y .- expected_features))
-                ref_scale = max(maximum(abs.(expected_features)), eps(Float32))
-                rel = diff / ref_scale
-                @info "$(variant) features max-abs-diff = $diff, rel = $rel"
-                @test rel < FEATURES_RTOL
-            end
-
-            # logits mode: only run when the variant ships a trained head.
-            if cfg.default_num_classes > 0 && haskey(fixture.output, "logits")
-                expected_logits = fixture.output["logits"]
-                @testset "forward (logits)" begin
-                    model = create_model(variant;
-                                       in_chans = 3,
-                                       num_classes = cfg.default_num_classes)
-                    ps, st = Lux.setup(Xoshiro(0), model)
-                    st = Lux.testmode(st)
-                    ps, st = load_pretrained(ps, st, variant)
-                    y, _ = model(x, ps, st)
-                    @test size(y) == size(expected_logits)
-                    diff = maximum(abs.(y .- expected_logits))
-                    @info "$(variant) logits max-abs-diff = $diff"
-                    @test diff < LOGITS_ATOL
-                end
-            end
-
-            # in_chans=1 parity: requires a separate fixture dumped from timm
-            # with the model built using in_chans=1 (timm's adapt_input_conv
-            # runs server-side at create_model time). The Julia side rebuilds
-            # the same adaptation via Jimm's adapt_input_conv, triggered by
-            # load_pretrained reading in_chans=1 from the model's stem weight.
-            fixture_in1c = convnextv2_load_fixture(variant; in_chans = 1)
-            if fixture_in1c === nothing
-                @info "skipping $(variant) in_chans=1: fixture missing at " *
-                      convnextv2_fixture_path(variant; in_chans = 1)
-            else
-                @testset "forward_features (in_chans=1)" begin
-                    x1 = fixture_in1c.input
-                    expected1 = fixture_in1c.output["features"]
-                    model = create_model(variant; in_chans = 1, num_classes = 0)
-                    ps, st = Lux.setup(Xoshiro(0), model)
-                    st = Lux.testmode(st)
-                    ps, st = load_pretrained(ps, st, variant)
-                    y, _ = model(x1, ps, st)
-                    @test size(y) == size(expected1)
-                    diff = maximum(abs.(y .- expected1))
-                    ref_scale = max(maximum(abs.(expected1)), eps(Float32))
-                    rel = diff / ref_scale
-                    @info "$(variant) features (in_chans=1) max-abs-diff = $diff, rel = $rel"
-                    @test rel < FEATURES_RTOL
-                end
-            end
+            run_variant_parity(variant, fixture)
         end
     end
 end

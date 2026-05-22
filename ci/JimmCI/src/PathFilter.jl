@@ -17,6 +17,8 @@ const _SHARED_EXACT = Set([
     "test/runtests.jl",
     "test/_ci_driver.jl",
     "test/_filter.jl",
+    "test/_parity_helpers.jl",
+    "test/_parity_tol.jl",
 ])
 
 const _FAMILY_PREFIXES = Dict{String,Tuple{Vararg{String}}}(
