@@ -28,18 +28,6 @@ end
 
 hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
 
-# Mirrors create_model's dispatch to recover the head width the released
-# weights were trained at. All four variants-of-record dicts expose the
-# same `default_num_classes` field on their config struct, so the lookup
-# is uniform once the right dict is found.
-function _default_num_classes(variant::Symbol)
-    for dict in (Jimm.BIT_VARIANTS, Jimm.RESNET_VARIANTS,
-                 Jimm.CONVNEXT_VARIANTS, Jimm.CONVNEXTV2_VARIANTS)
-        haskey(dict, variant) && return dict[variant].default_num_classes
-    end
-    error("Unknown variant for parity test: $variant")
-end
-
 # Runs the three parity sub-tests for one variant: forward_features,
 # forward (logits) when the fixture ships them, and forward_features at
 # in_chans=1 when a 1-channel fixture is available. `fixture` is the
@@ -47,17 +35,17 @@ end
 #
 # The logits sub-test keys on `haskey(fixture.output, "logits")` alone:
 # the timm dumper only writes that key for variants with a trained head,
-# which matches the `cfg.default_num_classes > 0` check the per-family
+# which matches the `default_num_classes(variant) > 0` rule the per-family
 # files used previously.
 function run_variant_parity(variant::Symbol, fixture)
     x = fixture.input
     expected_features = fixture.output["features"]
 
     @testset "forward_features" begin
-        model = create_model(variant; in_chans = 3, num_classes = 0)
+        model, load = create_pretrained(variant; num_classes = 0)
         ps, st = Lux.setup(Xoshiro(0), model)
         st = Lux.testmode(st)
-        ps, st = load_pretrained(ps, st, variant)
+        ps, st = load(ps, st)
         y, _ = model(x, ps, st)
         @test size(y) == size(expected_features)
         diff = maximum(abs.(y .- expected_features))
@@ -70,11 +58,10 @@ function run_variant_parity(variant::Symbol, fixture)
     if haskey(fixture.output, "logits")
         expected_logits = fixture.output["logits"]
         @testset "forward (logits)" begin
-            model = create_model(variant; in_chans = 3,
-                                 num_classes = _default_num_classes(variant))
+            model, load = create_pretrained(variant)
             ps, st = Lux.setup(Xoshiro(0), model)
             st = Lux.testmode(st)
-            ps, st = load_pretrained(ps, st, variant)
+            ps, st = load(ps, st)
             y, _ = model(x, ps, st)
             @test size(y) == size(expected_logits)
             diff = maximum(abs.(y .- expected_logits))
@@ -91,10 +78,10 @@ function run_variant_parity(variant::Symbol, fixture)
         @testset "forward_features (in_chans=1)" begin
             x1 = fixture_in1c.input
             expected1 = fixture_in1c.output["features"]
-            model = create_model(variant; in_chans = 1, num_classes = 0)
+            model, load = create_pretrained(variant; in_chans = 1, num_classes = 0)
             ps, st = Lux.setup(Xoshiro(0), model)
             st = Lux.testmode(st)
-            ps, st = load_pretrained(ps, st, variant)
+            ps, st = load(ps, st)
             y, _ = model(x1, ps, st)
             @test size(y) == size(expected1)
             diff = maximum(abs.(y .- expected1))

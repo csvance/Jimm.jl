@@ -77,7 +77,7 @@ used a `jimm`-only scratchspace inside the Julia depot; that location
 did not share weights with `timm` or `huggingface_hub`, so the default
 moved to the standard HF cache. Callers that need an isolated cache
 should pass `cache_dir = ...` explicitly to
-`load_bit_resnetv2_pretrained` / `hf_hub_download`.
+`create_pretrained` / `hf_hub_download`.
 """
 default_cache_dir() = hf_hub_cache_dir()
 

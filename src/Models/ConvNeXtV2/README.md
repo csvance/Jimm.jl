@@ -49,17 +49,17 @@ timm only registers it as `.untrained` (no pretrained weights).
 using Jimm, Lux, Random
 
 # Classifier head: returns (num_classes, N).
-model = create_model(:convnextv2_atto_fcmae_ft_in1k; num_classes = 1000)
+model, load = create_pretrained(:convnextv2_atto_fcmae_ft_in1k)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_pretrained(ps, st, :convnextv2_atto_fcmae_ft_in1k)
+ps, st = load(ps, st)
 x = randn(Float32, 224, 224, 3, 1)
 logits, _ = model(x, ps, st)              # (1000, 1)
 ```
 
-`load_pretrained` reads `in_chans` and the classifier presence/shape
-directly from `ps`, so the constructor is the single source of truth.
-The per-family `convnextv2` + `load_convnextv2_pretrained` pair is also
-exported and works identically.
+`create_pretrained` captures `in_chans` and `num_classes` in the
+returned closure, so they're specified once and the loader doesn't
+need to introspect `ps`. Use `create_model(variant; ...)` for a
+random-init build without weights.
 
 ## Transfer learning with a custom classifier
 
@@ -71,9 +71,9 @@ from the pretrained checkpoint, and emits a `@warn` letting you know
 `head_fc` was left at its `Lux.setup` random init:
 
 ```julia
-model = create_model(:convnextv2_atto_fcmae_ft_in1k; num_classes = 42)
+model, load = create_pretrained(:convnextv2_atto_fcmae_ft_in1k; num_classes = 42)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_pretrained(ps, st, :convnextv2_atto_fcmae_ft_in1k)
+ps, st = load(ps, st)
 # ┌ Warning: variant convnextv2_atto_fcmae_ft_in1k ships 1000-class
 # │ pretrained weights, but the model has a 42-class head. Loading the
 # │ backbone (and head_norm) only; the classifier is left at its
@@ -84,27 +84,6 @@ The `fcmae` (non-`ft_in1k`) variants have `default_num_classes = 0` and
 ship no classifier weights, so any model built with `num_classes > 0`
 on top of an `fcmae` encoder will get the same warning and a
 randomly-initialized `head_fc`.
-
-## Advanced: manual mapping with `load_head_norm` / `load_classifier`
-
-If you have a `.safetensors` blob already in memory (e.g., from a fork
-or a non-standard repo layout), [`convnextv2_mapping`](@ref) accepts
-the same flags the loader uses internally:
-
-```julia
-sd = Jimm.Interop.load_safetensors_state_dict(local_path)
-mapping = convnextv2_mapping(sd, :convnextv2_atto_fcmae_ft_in1k;
-                              load_head_norm  = true,   # include head.norm.*
-                              load_classifier = true,   # include head.fc.*
-                              in_chans = 3)
-ps = Jimm.Interop.apply_state_dict(ps, sd, mapping)
-```
-
-The two head flags are independent. Use `load_head_norm = true,
-load_classifier = false` for the transfer-learning case (load the
-post-stage LayerNorm, leave the user's `head_fc` alone). Both default
-to `false`, which matches the `num_classes = 0` feature-extractor
-case.
 
 ## License
 

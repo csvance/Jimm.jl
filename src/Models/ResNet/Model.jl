@@ -410,36 +410,33 @@ function _validate_resnet_consumed_keys(state_dict::Dict, param_mapping,
 end
 
 """
-    load_resnet_pretrained(ps, st, variant; revision="main",
-                           cache_dir=hf_hub_cache_dir(), prefix=()) -> (ps, st)
+    _load_resnet(ps, st, variant; in_chans, num_classes, revision,
+                 cache_dir, prefix) -> (ps, st)
 
-Resolve and load a timm ResNet `.safetensors` checkpoint from HuggingFace.
-Returns both params and state because BatchNorm running statistics live in
-Lux state.
+Private back-end for `create_pretrained` on ResNet variants. Resolves
+and loads a timm ResNet `.safetensors` from HuggingFace; returns both
+params and state because BatchNorm running statistics live in Lux
+state. `in_chans` and `num_classes` are forwarded from the closure
+captured at `create_pretrained` time; this loader no longer
+introspects `ps`. Three classifier-head cases (matching the three
+constructor paths):
 
-`in_chans` and `num_classes` are inferred from `ps`. Three cases:
-
-- No `fc` slot (model built with `num_classes = 0`): backbone-only load.
-- `fc` matches the variant's `default_num_classes`: full load.
-- `fc` exists but its class count differs: backbone loads, `@warn` is
-  emitted, and the user's custom classifier is left at its `Lux.setup`
-  random initialization.
+- `num_classes == 0`: backbone-only load.
+- `num_classes == default_num_classes(variant)`: full load.
+- `num_classes` differs from the variant's default: backbone loads,
+  `@warn` is emitted, and the user's custom classifier is left at its
+  `Lux.setup` random initialization.
 """
-function load_resnet_pretrained(ps, st, variant::Symbol;
-        revision::AbstractString = "main",
-        cache_dir::AbstractString = hf_hub_cache_dir(),
-        prefix::Tuple{Vararg{Symbol}} = ())
-    cfg = get(RESNET_VARIANTS, variant) do
-        error("Unknown ResNet variant: $variant. Known variants: " *
-              "$(sort(collect(keys(RESNET_VARIANTS))))")
-    end
-    sub = _navigate(ps, prefix)
-    in_chans = size(sub.conv1.weight, 3)
-    head_classes = haskey(sub, :fc) ? size(sub.fc.weight, 1) : 0
-    load_classifier = head_classes > 0 && head_classes == cfg.default_num_classes
-    if head_classes > 0 && head_classes != cfg.default_num_classes
+function _load_resnet(ps, st, variant::Symbol;
+        in_chans::Int, num_classes::Int,
+        revision::AbstractString,
+        cache_dir::AbstractString,
+        prefix::Tuple{Vararg{Symbol}})
+    cfg = RESNET_VARIANTS[variant]
+    load_classifier = num_classes > 0 && num_classes == cfg.default_num_classes
+    if num_classes > 0 && num_classes != cfg.default_num_classes
         @warn "variant $variant ships $(cfg.default_num_classes)-class pretrained weights, " *
-              "but the model has a $head_classes-class head. Loading the backbone only; " *
+              "but the model has a $num_classes-class head. Loading the backbone only; " *
               "the classifier head is left at its Lux.setup random initialization for you to train."
     end
     path = hf_hub_download(cfg.hf_repo, "model.safetensors";

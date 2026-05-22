@@ -36,12 +36,12 @@ setup.
 ```julia
 using Jimm, Lux, Random
 
-# `create_model` / `load_pretrained` are family-agnostic; the symbol
-# selects the family. The per-family entry points (`resnet`,
-# `load_resnet_pretrained`, etc.) work identically.
-model = create_model(:resnet50_a1_in1k; num_classes = 1000)
+# `create_pretrained` is family-agnostic; the symbol selects the
+# family. It returns the model and a closure that loads the released
+# weights into a `(ps, st)` pair you produce with `Lux.setup`.
+model, load = create_pretrained(:resnet50_a1_in1k)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_pretrained(ps, st, :resnet50_a1_in1k)
+ps, st = load(ps, st)
 
 x = randn(Float32, 224, 224, 3, 1)
 logits, _ = model(x, ps, st)              # (1000, 1)
@@ -55,22 +55,26 @@ A few things worth noting in the snippet:
   model name `resnet50.a1_in1k` with the dot rewritten as an
   underscore. The full name with the dot is at
   `RESNET_VARIANTS[:resnet50_a1_in1k].hf_repo`.
+- `create_pretrained` defaults `num_classes` to the variant's
+  `default_num_classes` (1000 for the `resnet50.a1_in1k` ImageNet
+  checkpoint). Pass an explicit `num_classes = 0` for a features-only
+  model, or any other Int for a custom head — see the next two
+  sections.
 - `Lux.setup` produces a `ps` (parameters) and `st` (state)
-  NamedTuple. `load_pretrained` (and the per-family
-  `load_<family>_pretrained`) returns a new `(ps, st)` with the
+  NamedTuple. The closure returns a new `(ps, st)` with the
   HuggingFace weights merged in. Stateless families (BiT, ConvNeXt,
   ConvNeXtV2) return `st` unchanged; ResNet merges BatchNorm running
   statistics into `st`.
-- The three-step pattern (`create_model` → `Lux.setup` → `load_pretrained`)
-  is the canonical one. It composes cleanly when the backbone is
-  nested inside a larger model — see [Composing into a larger
-  model](#composing-into-a-larger-model) below.
 - The input is shaped `(W, H, C, N)`, Lux's convention. PyTorch's
   `(N, C, H, W)` is read-reversed at load time so most weights land
   in the layout Lux expects directly.
 - `x` here is random noise. For a real prediction, replace it with a
   preprocessed image: resize to 224x224, scale to `Float32` in
   `[0, 1]`, then normalize with the ImageNet mean and std.
+- `create_model(variant; ...)` (without weight loading) is also
+  exported for from-scratch training and for embedding into an outer
+  `@compact` — see [Composing into a larger
+  model](#composing-into-a-larger-model) below.
 
 To map the top-5 indices to class names, pair the variant with any
 ImageNet class label list (Jimm ships none of its own; the timm
@@ -79,14 +83,14 @@ is unchanged).
 
 ## Feature extractor mode
 
-Pass `num_classes = 0` to both the constructor and the loader to get
-the post-stage feature map back instead of logits. This matches
+Pass `num_classes = 0` to drop the classifier head and get the
+post-stage feature map back instead of logits. This matches
 `timm.create_model(..., num_classes=0).forward_features(x)`:
 
 ```julia
-model = create_model(:resnet50_a1_in1k; num_classes = 0)
+model, load = create_pretrained(:resnet50_a1_in1k; num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_pretrained(ps, st, :resnet50_a1_in1k)
+ps, st = load(ps, st)
 
 x = randn(Float32, 224, 224, 3, 1)
 features, _ = model(x, ps, st)            # (7, 7, 2048, 1)
@@ -98,21 +102,21 @@ registered backbone. For ResNet50 that is `(7, 7, 2048, 1)` on a
 
 Use this mode when you want to attach Jimm's pretrained encoder to
 your own downstream head (regression, segmentation, neural ODE, etc.)
-without carrying around the 1000-class classifier that the
-`load_*_pretrained` call would otherwise initialize.
+without carrying around the 1000-class classifier the released
+checkpoint would otherwise initialize.
 
 ## Single-channel and other non-RGB inputs
 
-Pass `in_chans` to `create_model`. `load_pretrained` reads the stem
-shape from `ps` and adapts the released 3-channel weight via
-[`adapt_input_conv`](@ref) automatically — matching timm's
-`adapt_input_conv` semantics: sum across input channels for
-`in_chans = 1`, tile and rescale by `3 / in_chans` for other counts.
+Pass `in_chans` to `create_pretrained`. The closure adapts the
+released 3-channel weight via [`adapt_input_conv`](@ref) at load
+time — matching timm's `adapt_input_conv` semantics: sum across input
+channels for `in_chans = 1`, tile and rescale by `3 / in_chans` for
+other counts.
 
 ```julia
-model = create_model(:convnextv2_atto_fcmae; in_chans = 1, num_classes = 0)
+model, load = create_pretrained(:convnextv2_atto_fcmae; in_chans = 1)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_pretrained(ps, st, :convnextv2_atto_fcmae)
+ps, st = load(ps, st)
 
 x = randn(Float32, 224, 224, 1, 1)
 features, _ = model(x, ps, st)            # (7, 7, 320, 1)
@@ -124,22 +128,24 @@ single-channel input three times.
 
 ## Composing into a larger model
 
-`create_model` returns a bare `@compact` model with no parameters, so
-you can drop it into an outer `@compact` block and let one
-`Lux.setup` cover the whole composed tree. `load_pretrained` then
-fills only the backbone slot via `prefix`, leaving sibling layers
-(your custom head, additional towers, etc.) at their random init:
+`create_pretrained` returns the backbone and a closure that already
+knows the variant; pass `prefix = (:backbone,)` so the closure writes
+into the right subtree of the outer `Lux.setup` result. The backbone
+itself goes into the outer `@compact` block as a value:
 
 ```julia
+backbone, load_backbone = create_pretrained(:resnet50_a1_in1k;
+    num_classes = 0, prefix = (:backbone,))
+
 outer = @compact(
-    backbone = create_model(:resnet50_a1_in1k; num_classes = 0),
+    backbone = backbone,
     head     = Dense(2048 => num_outputs),
 ) do x
     head(backbone(x))
 end
 
 ps, st = Lux.setup(Xoshiro(0), outer)
-ps, st = load_pretrained(ps, st, :resnet50_a1_in1k; prefix = (:backbone,))
+ps, st = load_backbone(ps, st)
 ```
 
 The mapping function prefixes every leaf path with `prefix...`, so
@@ -150,36 +156,24 @@ keeps its `Lux.setup` initialization. Deeper nestings chain symbols:
 
 ## Switching families
 
-The `create_model` / `load_pretrained` dispatch above already covers
-every family by symbol — no separate calls per family needed. The
-per-family entry points exist for callers who already know the family
-or who want to reach for family-specific kwargs explicitly:
+`create_pretrained` (released weights) and `create_model` (random
+init) both dispatch on the variant symbol, so picking a different
+family is just picking a different symbol — no per-family entry
+points to learn. Each family registers its variants under one
+`<FAMILY>_VARIANTS` dict, which is enumerable for variant discovery:
 
-```julia
-model = <family>(variant; in_chans, num_classes)
-ps, st = Lux.setup(rng, model)
-ps, st = load_<family>_pretrained(ps, st, variant)
-```
+- [`RESNET_VARIANTS`](@ref). 5 variants.
+- [`BIT_VARIANTS`](@ref). 15 variants.
+- [`CONVNEXT_VARIANTS`](@ref). 23 variants (19 Apache 2.0 Facebook
+  AI checkpoints plus 4 Meta DINOv3 encoders).
+- [`CONVNEXTV2_VARIANTS`](@ref). 26 variants.
 
-The constructors and loaders for each family are:
-
-- `resnet` + [`load_resnet_pretrained`](@ref). 5 variants in
-  [`RESNET_VARIANTS`](@ref).
-- `bit_resnetv2` + [`load_bit_resnetv2_pretrained`](@ref). 15 variants
-  in [`BIT_VARIANTS`](@ref).
-- `convnext` + [`load_convnext_pretrained`](@ref). 23 variants in
-  [`CONVNEXT_VARIANTS`](@ref) (19 Apache 2.0 Facebook AI checkpoints
-  plus 4 Meta DINOv3 encoders).
-- `convnextv2` + [`load_convnextv2_pretrained`](@ref). 26 variants in
-  [`CONVNEXTV2_VARIANTS`](@ref).
-
-See the [API Reference](api/models.md) for the full signature of each
-constructor and loader.
+See the [API Reference](api/models.md) for the full signatures.
 
 ## Pretrained weights and the HuggingFace cache
 
-`load_<family>_pretrained` resolves `model.safetensors` against the
-standard HuggingFace Hub cache layout
+The `create_pretrained` closure resolves `model.safetensors` against
+the standard HuggingFace Hub cache layout
 (`HF_HUB_CACHE` → `$HF_HOME/hub` → `~/.cache/huggingface/hub`), so the
 same blob is shared with `timm` and `huggingface_hub`: whichever tool
 downloads first, the other sees a cache hit. Subsequent calls

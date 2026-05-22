@@ -39,20 +39,23 @@ input shapes). File issues and PRs.
 using Jimm, Lux, Random
 
 # ResNet50 with the trained 1000-class ImageNet head.
-# `create_model` + `load_pretrained` are family-agnostic; the symbol
-# selects the family.
-model = create_model(:resnet50_a1_in1k; num_classes = 1000)
+# `create_pretrained` is family-agnostic; the symbol selects the family.
+# It returns the model and a closure that loads the released weights
+# into `(ps, st)` once you've run `Lux.setup`.
+model, load = create_pretrained(:resnet50_a1_in1k)
 ps, st = Lux.setup(Xoshiro(0), model)
-ps, st = load_pretrained(ps, st, :resnet50_a1_in1k)
+ps, st = load(ps, st)
 
 x = randn(Float32, 224, 224, 3, 1)
 logits, _ = model(x, ps, st)              # (1000, 1)
 top1 = argmax(vec(logits))                # ImageNet class index
 ```
 
-For the full walkthrough, including feature-extractor mode
-(`num_classes = 0`), single-channel inputs (`in_chans = 1`), and the
-HuggingFace cache layout, see the [Getting Started][docs-getting-started] docs page.
+`create_model(variant; ...)` (without weight loading) is also exported
+for from-scratch training. For the full walkthrough, including
+feature-extractor mode (`num_classes = 0`), single-channel inputs
+(`in_chans = 1`), and the HuggingFace cache layout, see the
+[Getting Started][docs-getting-started] docs page.
 
 ## Documentation
 

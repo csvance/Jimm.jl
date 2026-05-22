@@ -20,8 +20,8 @@ ground for human contributors without those tools.
 A new backbone is mergeable when all four hold:
 
 1. **Pretrained parity.** Forward output of the Lux model with weights
-   loaded via `load_<family>_pretrained` (or the family-agnostic
-   [`load_pretrained`](@ref)) matches `timm`'s forward
+   loaded via the closure returned by
+   [`create_pretrained`](@ref) matches `timm`'s forward
    output on the same input. The bar is two-tier: **logits** are
    checked at an absolute max-abs-diff under `LOGITS_ATOL = 1f-3`, and
    **features** (`num_classes = 0`, and the `in_chans = 1` companion)
@@ -245,7 +245,7 @@ across families:
    `<family>_state_mapping` and `apply_state_dict`.
 
 Once the variant is registered in `<FAMILY>_VARIANTS`, it is reachable
-through the family-agnostic [`load_pretrained`](@ref) and
+through the family-agnostic [`create_pretrained`](@ref) and
 [`create_model`](@ref) dispatchers automatically — no extra wiring.
 
 Keep the constructor and the weight loading separate. The

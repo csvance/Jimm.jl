@@ -267,9 +267,8 @@ function convnext_mapping(state_dict::Dict, variant::Symbol;
 end
 
 """
-    load_convnext_pretrained(ps, st, variant; revision="main",
-                             cache_dir=hf_hub_cache_dir(),
-                             prefix=()) -> (ps, st)
+    _load_convnext(ps, st, variant; in_chans, num_classes,
+                   revision, cache_dir, prefix) -> (ps, st)
 
 Resolve `model.safetensors` for `variant` on HuggingFace (cached on disk
 under the standard HF Hub layout, so the same blob is shared with any
@@ -279,49 +278,42 @@ weights applied at `ps.<prefix...>`. `st` is returned unchanged
 (LayerNorm has no running statistics); the uniform `(ps, st)` shape
 mirrors the other family loaders.
 
-`in_chans` and head presence/shape are inferred from `ps`. The
-ConvNeXt head bundles a LayerNorm (`head_norm`) and a Dense classifier
-(`head_fc`). The LayerNorm is always loaded if it exists in `ps`,
-since its dim depends only on the feature width, not `num_classes`.
-The classifier is loaded only when its class count matches the
-variant's `default_num_classes`. Three cases:
+`in_chans` and `num_classes` are forwarded from the closure captured
+at `create_pretrained` time. The ConvNeXt head bundles a LayerNorm
+(`head_norm`) and a Dense classifier (`head_fc`); the LayerNorm is
+loaded whenever the model has a head (`num_classes > 0`). The
+classifier is loaded only when `num_classes` matches the variant's
+`default_num_classes`. Three cases:
 
-- No `head_fc` slot (model built with `num_classes = 0`): backbone-only
-  feature extractor.
-- `head_fc` matches `default_num_classes`: full load including
+- `num_classes == 0`: backbone-only feature extractor.
+- `num_classes == default_num_classes(variant)`: full load including
   classifier.
-- `head_fc` exists but class count differs: backbone + `head_norm`
-  load, `@warn` is emitted, and the user's custom classifier is left
-  at its `Lux.setup` random initialization.
+- `num_classes` differs from the variant's default: backbone +
+  `head_norm` load, `@warn` is emitted, and the user's custom
+  classifier is left at its `Lux.setup` random initialization.
 
 The four DINOv3 variants registered in [`CONVNEXT_VARIANTS`](@ref)
 all have `default_num_classes = 0` and ship no pretrained head; any
 custom classifier the user adds will trigger the warning case.
 
-When the introspected `in_chans != 3`, the stem weight is adapted from
-the released 3-channel checkpoint via [`adapt_input_conv`](@ref),
-matching timm's `adapt_input_conv` behaviour at load time.
-
-`revision` selects a branch / tag / commit on the HF repo; defaults to
-`"main"`. `cache_dir` defaults to the same root `huggingface_hub` uses
-(`HF_HUB_CACHE` → `\$HF_HOME/hub` → `~/.cache/huggingface/hub`).
+When `in_chans != 3`, the stem weight is adapted from the released
+3-channel checkpoint via [`adapt_input_conv`](@ref), matching timm's
+`adapt_input_conv` behaviour at load time.
 """
-function load_convnext_pretrained(ps, st, variant::Symbol;
-        revision::AbstractString = "main",
-        cache_dir::AbstractString = hf_hub_cache_dir(),
-        prefix::Tuple{Vararg{Symbol}} = ())
-    cfg = get(CONVNEXT_VARIANTS, variant) do
-        error("Unknown ConvNeXt variant: $variant. Known variants: " *
-              "$(sort(collect(keys(CONVNEXT_VARIANTS))))")
-    end
-    sub = _navigate(ps, prefix)
-    in_chans = size(sub.stem_conv.weight, 3)
-    load_head_norm = haskey(sub, :head_norm)
-    head_classes = haskey(sub, :head_fc) ? size(sub.head_fc.weight, 1) : 0
-    load_classifier = head_classes > 0 && head_classes == cfg.default_num_classes
-    if head_classes > 0 && head_classes != cfg.default_num_classes
+function _load_convnext(ps, st, variant::Symbol;
+        in_chans::Int, num_classes::Int,
+        revision::AbstractString,
+        cache_dir::AbstractString,
+        prefix::Tuple{Vararg{Symbol}})
+    cfg = CONVNEXT_VARIANTS[variant]
+    # `head_norm` exists in the model iff `num_classes > 0` (the
+    # constructor's `else` branch). The classifier rule is the same
+    # three-way split as the other families.
+    load_head_norm = num_classes > 0
+    load_classifier = num_classes > 0 && num_classes == cfg.default_num_classes
+    if num_classes > 0 && num_classes != cfg.default_num_classes
         @warn "variant $variant ships $(cfg.default_num_classes)-class pretrained weights, " *
-              "but the model has a $head_classes-class head. Loading the backbone " *
+              "but the model has a $num_classes-class head. Loading the backbone " *
               "(and head_norm) only; the classifier is left at its Lux.setup random " *
               "initialization for you to train."
     end
