@@ -67,7 +67,8 @@ const _CN2_HUGE_DIMS = (352, 704, 1408, 2816)
 
 Lookup table for the ConvNeXtV2 variants this package ports. The
 `.fcmae` rows are the bare encoders; all other rows ship a 1000-class
-ImageNet head.
+ImageNet head. `convnextv2_small` is not included because timm only
+registers it as `.untrained` (no pretrained weights).
 """
 const CONVNEXTV2_VARIANTS = Dict{Symbol,ConvNeXtV2Variant}(
     # atto
