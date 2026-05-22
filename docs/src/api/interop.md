@@ -35,7 +35,6 @@ adapt_input_conv
 hf_hub_download
 hf_download
 hf_hub_cache_dir
-default_cache_dir
 ```
 
 ## SafeTensors
