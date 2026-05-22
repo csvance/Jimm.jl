@@ -71,9 +71,13 @@ deliberately taken from `timm` so pretrained weights load directly.
 
 ## Acknowledgements
 
-Thanks to Ross Wightman for `timm`, to the Julia ML ecosystem
-maintainers whose work makes a port like this plausible, and to
-[Medical Metrics Inc.][medicalmetrics] for allowing me to work on and open-source the project.
+Thanks to Ross Wightman for `timm`, to [HuggingFace][huggingface] for
+hosting the `.safetensors` weights that Jimm.jl loads at runtime, to
+the Julia ML ecosystem maintainers whose work makes a port like this
+plausible, and to [Medical Metrics Inc.][medicalmetrics] for allowing
+me to work on and open-source the project.
+
+[huggingface]: https://huggingface.co/
 
 [timm]: https://github.com/huggingface/pytorch-image-models
 

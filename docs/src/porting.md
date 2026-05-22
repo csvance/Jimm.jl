@@ -22,10 +22,10 @@ A new backbone is mergeable when all four hold:
 1. **Pretrained parity.** Forward output of the Lux model with weights
    loaded via `load_<family>_pretrained` matches `timm`'s forward
    output on the same input. The bar is two-tier: **logits** are
-   checked at an absolute max-abs-diff under `TOL = 1f-3`, and
+   checked at an absolute max-abs-diff under `LOGITS_ATOL = 1f-3`, and
    **features** (`num_classes = 0`, and the `in_chans = 1` companion)
    are checked at a relative bar `max-abs-diff / max-abs(timm ref)`
-   under `FEATURES_RTOL = 1f-3`. Existing models land well inside
+   under `FEATURES_RTOL = 1f-4`. Existing models land well inside
    this: BiT ResNetV2-50 features around `1.5e-4` absolute (well
    under the relative bar at typical feature magnitudes), its logits
    around `2e-5`; ConvNeXtV2 atto comparable.
@@ -46,7 +46,7 @@ A new backbone is mergeable when all four hold:
    HuggingFace repo id and default class count, and listed in the
    README backbone table.
 
-## Why the bar is `~1e-3`, not `1e-5`
+## Why the bars are `~1e-3` (logits) and `~1e-4` (features), not `1e-5`
 
 Float32 round-off accumulates through the depth of a network. Each
 conv, norm, and weight-standardization stage reorders sums in ways
@@ -57,8 +57,8 @@ activations. The shallower head (one pool plus one Dense) sits
 closer to `1e-5` because almost no new accumulation happens after
 the backbone.
 
-The test gates are `TOL = 1f-3` (absolute, logits) and
-`FEATURES_RTOL = 1f-3` (relative, features). Both are tight enough
+The test gates are `LOGITS_ATOL = 1f-3` (absolute, logits) and
+`FEATURES_RTOL = 1f-4` (relative, features). Both are tight enough
 to catch the silent-divergence failure modes that actually matter
 (cross-correlation vs convolution, population vs sample variance,
 GELU approximation mismatch, axis permutations, missing norm

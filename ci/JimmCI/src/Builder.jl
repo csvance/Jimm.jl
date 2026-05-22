@@ -176,6 +176,27 @@ function _is_bare_repo(path::AbstractString)
     end
 end
 
+# GitHub publishes every open PR's head at refs/pull/<N>/head on the base
+# repo, including PRs whose head branch lives in a fork. Mapping those into
+# `refs/remotes/origin/pr/*` makes the fork SHA reachable by `git worktree
+# add` without needing per-fork remotes.
+const _PR_REFSPEC = "+refs/pull/*/head:refs/remotes/origin/pr/*"
+
+function _ensure_pr_refspec!(cfg::Config)
+    env = copy(ENV); env["GIT_TERMINAL_PROMPT"] = "0"
+    existing = try
+        read(setenv(`git -C $(cfg.mirror_dir) config --get-all remote.origin.fetch`,
+                    env), String)
+    catch
+        ""
+    end
+    occursin(_PR_REFSPEC, existing) && return
+    _git(cfg, ["-C", cfg.mirror_dir, "config", "--add",
+               "remote.origin.fetch", _PR_REFSPEC];
+         cwd = cfg.mirror_dir,
+         log_path = joinpath(cfg.log_dir, "mirror-refspec.log"))
+end
+
 function _ensure_mirror!(b::Builder)
     cfg = b.cfg
     if isdir(cfg.mirror_dir) && !_is_bare_repo(cfg.mirror_dir)
@@ -191,7 +212,12 @@ function _ensure_mirror!(b::Builder)
             cwd = dirname(cfg.mirror_dir),
             log_path = joinpath(cfg.log_dir, "mirror-init.log"),
         )
+        _ensure_pr_refspec!(cfg)
+        _git(cfg, ["fetch", "--prune", "origin"];
+             cwd = cfg.mirror_dir,
+             log_path = joinpath(cfg.log_dir, "mirror-fetch.log"))
     else
+        _ensure_pr_refspec!(cfg)
         _git(cfg, ["fetch", "--prune", "origin"];
              cwd = cfg.mirror_dir,
              log_path = joinpath(cfg.log_dir, "mirror-fetch.log"))
@@ -227,14 +253,24 @@ end
 
 # ── Env construction ─────────────────────────────────────────────────
 
-function _env_for_family(cfg::Config, family::AbstractString, variant::AbstractString)
+function _env_for_run(cfg::Config, families::Vector{String},
+                       variants::Dict{String,String})
     env = copy(ENV)
     env["JULIA_NUM_THREADS"]  = get(ENV, "JULIA_NUM_THREADS", "4")
     env["HF_HUB_CACHE"]       = cfg.hf_cache
     env["JULIA_DEPOT_PATH"]   = cfg.julia_depot
     env["JULIA_LOAD_PATH"]    = "@:@v#.#:@stdlib"
-    env["JIMM_TEST_FAMILIES"] = String(family)
-    env["JIMM_TEST_VARIANTS"] = String(variant)
+    env["JIMM_TEST_FAMILIES"] = join(families, ",")
+    var_list = String[]
+    for f in families
+        v = get(variants, f, "")
+        isempty(v) || push!(var_list, v)
+    end
+    if isempty(var_list)
+        delete!(env, "JIMM_TEST_VARIANTS")
+    else
+        env["JIMM_TEST_VARIANTS"] = join(var_list, ",")
+    end
     env["JIMM_PARITY_DIR"]    = cfg.parity_dir
     if cfg.hf_token !== nothing
         env["HF_TOKEN"]                = cfg.hf_token
@@ -351,75 +387,255 @@ function _link_fixture_into_worktree(fixture::AbstractString, wt::AbstractString
 end
 
 # ── Job execution ────────────────────────────────────────────────────
+#
+# The driver (`test/_ci_driver.jl`) runs every requested family inside one
+# Julia process and emits two structured stdout markers per family:
+#
+#     ==> JIMM_FAMILY_BEGIN: family=<name>
+#     ==> JIMM_FAMILY_END:   family=<name> rc=<0|1>
+#
+# `_run_driver!` watches those markers to drive the per-family check_run
+# lifecycle while buffering each family's intermediate lines for the
+# check_run's `output.text` field.
 
-function _run_family!(b::Builder, job::Job, wt::AbstractString,
-                       family::AbstractString, variant::AbstractString,
-                       on_line::Function, token::BuildCancel)
-    name = check_name(family, variant)
-    log_path = joinpath(b.cfg.log_dir, job.head_sha, "$family.log")
+mutable struct _FamilyState
+    name::String
+    variant::String
+    check_id::Union{Int,Nothing}
+    log_path::String
+    log_io::Union{IOStream,Nothing}
+    completed::Bool
+end
 
-    check = create_check_run(b.gh, repo_fullname(b.cfg), job.head_sha, name;
-                              status = "in_progress")
-    job.check_runs[family] = check.id
-    on_line("==> [check-run] $(name) → in_progress (id=$(check.id))")
+_FamilyState(name, variant, log_dir) = _FamilyState(
+    String(name), String(variant), nothing,
+    joinpath(log_dir, "$(name).log"), nothing, false,
+)
 
-    rc = 1
+const _MARKER_BEGIN_RE = r"^==> JIMM_FAMILY_BEGIN: family=(\S+)"
+const _MARKER_END_RE   = r"^==> JIMM_FAMILY_END: family=(\S+) rc=(\d+)"
+
+function _start_family_check!(b::Builder, job::Job, st::_FamilyState,
+                               on_line::Function)
+    st.check_id === nothing || return
+    name = check_name(st.name, st.variant)
     try
-        _ensure_fixtures!(b, job, wt, family, variant, on_line, token)
-        if is_cancelled(token)
-            throw(InterruptException())
-        end
-
-        cmd = Cmd([
-            b.cfg.julia_binary, "--project=.", "-e",
-            "using Pkg; Pkg.instantiate(); Pkg.test()",
-        ])
-        env = _env_for_family(b.cfg, family, variant)
-        rc = _stream_subprocess(cmd, env, log_path, on_line, token; cwd = wt)
+        check = create_check_run(b.gh, repo_fullname(b.cfg), job.head_sha, name;
+                                  status = "in_progress")
+        st.check_id = check.id
+        job.check_runs[st.name] = check.id
+        on_line("==> [check-run] $(name) → in_progress (id=$(check.id))")
     catch e
-        if is_cancelled(token) || e isa InterruptException
-            on_line("==> [check-run] $(name) cancelled")
-            try
-                complete_check_run(b.gh, repo_fullname(b.cfg), check.id;
-                    conclusion = "cancelled",
-                    output = Dict("title"   => "$family cancelled",
-                                  "summary" => "Build was cancelled.",
-                                  "text"    => _read_tail(log_path)))
-            catch err
-                @warn "completing check_run as cancelled failed" exception=err
-            end
-            rethrow()
-        else
-            @warn "subprocess failed" family exception=e
-            try
-                complete_check_run(b.gh, repo_fullname(b.cfg), check.id;
-                    conclusion = "failure",
-                    output = Dict("title"   => "$family errored",
-                                  "summary" => "Service-level error: $(sprint(showerror, e))",
-                                  "text"    => _read_tail(log_path)))
-            catch err
-                @warn "completing check_run as failure failed" exception=err
-            end
-            return
+        @warn "create check_run failed" family=st.name exception=e
+    end
+end
+
+function _finish_family_check!(b::Builder, job::Job, st::_FamilyState,
+                                conclusion::AbstractString;
+                                rc::Int = -1,
+                                extra_text::AbstractString = "",
+                                on_line::Function = identity)
+    st.completed = true
+    _close_family_log!(st)
+    _start_family_check!(b, job, st, on_line)
+    st.check_id === nothing && return
+
+    name = check_name(st.name, st.variant)
+    title_suffix = conclusion == "success"   ? "passed" :
+                   conclusion == "failure"   ? "failed" :
+                   conclusion == "cancelled" ? "cancelled" : conclusion
+    summary = if rc >= 0
+        "Exit code $(rc). Variant: `$(isempty(st.variant) ? "all" : st.variant)`. " *
+        "Sweep: `$(job.full_sweep)`."
+    else
+        "Variant: `$(isempty(st.variant) ? "all" : st.variant)`. Sweep: `$(job.full_sweep)`."
+    end
+
+    text = _read_tail(st.log_path)
+    if !isempty(extra_text)
+        text = isempty(text) ? extra_text : string(extra_text, "\n\n", text)
+        if length(text) > MAX_OUTPUT_TEXT
+            head = "[... log truncated ...]\n"
+            tail = text[end - (MAX_OUTPUT_TEXT - length(head)) + 1 : end]
+            text = string(head, tail)
         end
     end
 
-    conclusion = rc == 0 ? "success" : "failure"
-    on_line("==> [check-run] $(name) → $(conclusion) (rc=$(rc))")
-    complete_check_run(b.gh, repo_fullname(b.cfg), check.id;
-        conclusion = conclusion,
-        output = Dict("title"   => "$family $(rc == 0 ? "passed" : "failed")",
-                      "summary" => "Exit code $(rc). Variant: `$(isempty(variant) ? "all" : variant)`. " *
-                                   "Sweep: `$(job.full_sweep)`.",
-                      "text"    => _read_tail(log_path)))
+    suffix = rc >= 0 ? " (rc=$(rc))" : ""
+    on_line("==> [check-run] $(name) → $(conclusion)$(suffix)")
+    try
+        complete_check_run(b.gh, repo_fullname(b.cfg), st.check_id;
+            conclusion = conclusion,
+            output = Dict("title"   => "$(st.name) $(title_suffix)",
+                          "summary" => summary,
+                          "text"    => text))
+    catch e
+        @warn "complete check_run failed" family=st.name conclusion exception=e
+    end
+end
+
+function _open_family_log!(st::_FamilyState)
+    mkpath(dirname(st.log_path))
+    st.log_io = open(st.log_path, "w")
+end
+
+function _close_family_log!(st::_FamilyState)
+    io = st.log_io
+    io === nothing && return
+    try
+        flush(io)
+        close(io)
+    catch
+    end
+    st.log_io = nothing
+end
+
+function _append_family_log!(st::_FamilyState, line::AbstractString)
+    io = st.log_io
+    io === nothing && return
+    try
+        println(io, line)
+    catch
+    end
+end
+
+function _preflight_fixtures!(b::Builder, job::Job, wt::AbstractString,
+                               variants::Dict{String,String},
+                               on_line::Function, token::BuildCancel)
+    ready  = String[]
+    failed = Dict{String,String}()
+    for family in job.families
+        is_cancelled(token) && throw(InterruptException())
+        variant = get(variants, family, "")
+        try
+            _ensure_fixtures!(b, job, wt, family, variant, on_line, token)
+            push!(ready, family)
+        catch e
+            if is_cancelled(token) || e isa InterruptException
+                rethrow()
+            end
+            msg = sprint(showerror, e)
+            on_line("==> fixture dump for $(family) failed: $(msg)")
+            failed[family] = msg
+        end
+    end
+    return ready, failed
+end
+
+function _run_driver!(b::Builder, job::Job, wt::AbstractString,
+                      variants::Dict{String,String},
+                      on_line::Function, token::BuildCancel)
+    log_dir = joinpath(b.cfg.log_dir, job.head_sha)
+    mkpath(log_dir)
+
+    ready, preflight_failed = _preflight_fixtures!(b, job, wt, variants,
+                                                    on_line, token)
+
+    state = Dict{String,_FamilyState}()
+    for family in job.families
+        state[family] = _FamilyState(family, get(variants, family, ""), log_dir)
+    end
+
+    for (family, msg) in preflight_failed
+        _finish_family_check!(b, job, state[family], "failure";
+            extra_text = "Parity-fixture dump failed:\n$(msg)",
+            on_line = on_line)
+    end
+
+    if isempty(ready)
+        on_line("==> no families ready to run (all preflight failed)")
+        return
+    end
+
+    current = Ref{Union{Nothing,String}}(nothing)
+
+    function on_driver_line(line::AbstractString)
+        on_line(line)
+
+        m = match(_MARKER_BEGIN_RE, line)
+        if m !== nothing
+            fam = String(m.captures[1])
+            cur = current[]
+            if cur !== nothing && haskey(state, cur) && !state[cur].completed
+                _finish_family_check!(b, job, state[cur], "failure";
+                    extra_text = "Driver started a new family without emitting JIMM_FAMILY_END for this one.",
+                    on_line = on_line)
+            end
+            current[] = fam
+            haskey(state, fam) || return
+            _open_family_log!(state[fam])
+            _start_family_check!(b, job, state[fam], on_line)
+            return
+        end
+
+        m = match(_MARKER_END_RE, line)
+        if m !== nothing
+            fam = String(m.captures[1])
+            rc  = parse(Int, m.captures[2])
+            haskey(state, fam) && _finish_family_check!(b, job, state[fam],
+                rc == 0 ? "success" : "failure";
+                rc = rc, on_line = on_line)
+            current[] = nothing
+            return
+        end
+
+        cur = current[]
+        cur !== nothing && haskey(state, cur) && _append_family_log!(state[cur], line)
+    end
+
+    driver_log = joinpath(log_dir, "driver.log")
+    env = _env_for_run(b.cfg, ready, variants)
+    cmd = Cmd([
+        b.cfg.julia_binary, "--project=.", "-e",
+        "using Pkg; Pkg.instantiate(); include(\"test/_ci_driver.jl\")",
+    ])
+
+    rc_overall = 1
+    crashed_err::Union{Nothing,String} = nothing
+    cancelled = false
+    try
+        rc_overall = _stream_subprocess(cmd, env, driver_log, on_driver_line,
+                                         token; cwd = wt)
+    catch e
+        if is_cancelled(token) || e isa InterruptException
+            cancelled = true
+        else
+            crashed_err = sprint(showerror, e)
+            @warn "driver subprocess raised" exception=e
+        end
+    end
+
+    cur = current[]
+    cur === nothing || _close_family_log!(state[cur])
+
+    for family in ready
+        st = state[family]
+        st.completed && continue
+        if cancelled || is_cancelled(token)
+            _finish_family_check!(b, job, st, "cancelled";
+                extra_text = "Build was cancelled before this family finished.",
+                on_line = on_line)
+        else
+            note = crashed_err === nothing ?
+                "Driver exited (rc=$(rc_overall)) before this family emitted JIMM_FAMILY_END." :
+                "Driver subprocess raised: $(crashed_err)"
+            _finish_family_check!(b, job, st, "failure";
+                rc = rc_overall, extra_text = note, on_line = on_line)
+        end
+    end
+
+    cancelled && throw(InterruptException())
+    return
 end
 
 """
     run_job(builder, job; on_line, token)
 
-Run every family in `job` serially, streaming each line of the build's
-combined stdout/stderr through `on_line(line)`. Cancellation is honored
-via `token` (see `BuildCancel`).
+Run every family in `job` inside a single Julia subprocess driven by
+`test/_ci_driver.jl`, streaming each line of the build's combined
+stdout/stderr through `on_line(line)`. Per-family GitHub check_runs are
+driven by the `JIMM_FAMILY_BEGIN` / `JIMM_FAMILY_END` markers the driver
+emits. Cancellation is honored via `token` (see `BuildCancel`).
 """
 function run_job(builder::Builder, job::Job;
                   on_line::Function = identity,
@@ -429,12 +645,12 @@ function run_job(builder::Builder, job::Job;
     _ensure_mirror!(builder)
     wt = _make_worktree!(builder, job.head_sha)
     try
+        variants = Dict{String,String}()
         for family in job.families
-            is_cancelled(token) && throw(InterruptException())
-            variant = job.full_sweep ? "" :
-                      get(REPRESENTATIVE_VARIANT, family, "")
-            _run_family!(builder, job, wt, family, variant, on_line, token)
+            variants[family] = job.full_sweep ? "" :
+                               get(REPRESENTATIVE_VARIANT, family, "")
         end
+        _run_driver!(builder, job, wt, variants, on_line, token)
     finally
         _drop_worktree!(builder, wt)
     end

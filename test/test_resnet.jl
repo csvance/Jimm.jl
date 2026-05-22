@@ -7,12 +7,7 @@ using Random
 
 isdefined(@__MODULE__, :variant_filter) || include("_filter.jl")
 
-const RESNET_TOL = 1f-3
-# Features parity uses a relative bar: max-abs diff divided by max-abs of the
-# timm reference. Deep backbones accumulate FP32 rounding through many stages,
-# inflating raw pre-norm feature diffs even when downstream logits stay tight,
-# so an absolute ceiling there gives false negatives.
-const RESNET_FEATURES_RTOL = 1f-3
+isdefined(@__MODULE__, :LOGITS_ATOL) || include("_parity_tol.jl")
 const RESNET_VARIANTS_TO_TEST = (
     :resnet18_a1_in1k,
     :resnet34_a1_in1k,
@@ -64,7 +59,7 @@ resnet_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
                 ref_scale = max(maximum(abs.(expected_features)), eps(Float32))
                 rel = diff / ref_scale
                 @info "$(variant) features max-abs-diff = $diff, rel = $rel"
-                @test rel < RESNET_FEATURES_RTOL
+                @test rel < FEATURES_RTOL
             end
 
             @testset "forward (logits)" begin
@@ -79,7 +74,7 @@ resnet_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
                 @test size(y) == size(expected_logits)
                 diff = maximum(abs.(y .- expected_logits))
                 @info "$(variant) logits max-abs-diff = $diff"
-                @test diff < RESNET_TOL
+                @test diff < LOGITS_ATOL
             end
 
             fixture_in1c = load_resnet_fixture(variant; in_chans = 1)
@@ -102,7 +97,7 @@ resnet_hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"
                     ref_scale = max(maximum(abs.(expected1)), eps(Float32))
                     rel = diff / ref_scale
                     @info "$(variant) features (in_chans=1) max-abs-diff = $diff, rel = $rel"
-                    @test rel < RESNET_FEATURES_RTOL
+                    @test rel < FEATURES_RTOL
                 end
             end
         end
