@@ -113,10 +113,9 @@ checkpoint would otherwise initialize.
 ## Single-channel and other non-RGB inputs
 
 Pass `in_chans` to `create_pretrained`. The closure adapts the
-released 3-channel weight via [`adapt_input_conv`](@ref) at load
-time — matching timm's `adapt_input_conv` semantics: sum across input
-channels for `in_chans = 1`, tile and rescale by `3 / in_chans` for
-other counts.
+released 3-channel weight at load time, matching timm's
+`adapt_input_conv` semantics: sum across input channels for
+`in_chans = 1`, tile and rescale by `3 / in_chans` for other counts.
 
 ```julia
 model, load = create_pretrained(:convnextv2_atto_fcmae; in_chans = 1)

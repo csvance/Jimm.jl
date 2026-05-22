@@ -103,7 +103,7 @@ template.
 The fixture stores `/input` (deterministic random input, PyTorch NCHW
 layout), `/state_dict/<key>` for every PyTorch parameter, and
 `/output/features` plus optional `/output/logits`. The Julia side
-reads it via [`read_parity`](@ref), which reverses the axes so
+reads it via `Jimm.Interop.read_parity`, which reverses the axes so
 tensors arrive in Lux's WHCN layout.
 
 Run the dump once per variant:
@@ -127,7 +127,7 @@ fixtures are the bisection tool when the end-to-end test fails.
 Do not re-implement anything that already lives under `src/Layers/`
 or `src/Interop/`. The load-bearing helpers and what they do:
 
-- [`read_parity`](@ref) returns `(input, state_dict, output)` as
+- `Jimm.Interop.read_parity` returns `(input, state_dict, output)` as
   `Float32` arrays in WHCN layout (the reverse of PyTorch's logical
   NCHW). Conv weight `(out, in, kH, kW)` becomes `(kW, kH, in,
   out)`, which is exactly Lux's Conv layout. For most parameters the
@@ -136,7 +136,7 @@ or `src/Interop/`. The load-bearing helpers and what they do:
   setting leaves from the dict. Mapping entries are triples
   `(pytorch_key, lux_path_tuple, transform)`. Non-mutating; bind the
   result.
-- [`axis_reverse`](@ref) and [`pyperm`](@ref) are ready-made
+- `Jimm.Interop.axis_reverse` and `Jimm.Interop.pyperm` are ready-made
   transforms for the cases where the HDF5-natural layout is not what
   you want, typically Dense weights and LayerNorm scale/bias.
 - [`std_conv`](@ref), [`layernorm2d`](@ref), [`grn_layer`](@ref) are

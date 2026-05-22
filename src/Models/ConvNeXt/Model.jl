@@ -183,8 +183,8 @@ depends on the feature width, not `num_classes`), and
 `load_classifier=true` adds the `head.fc.*` Dense keys (whose dim
 depends on `num_classes`). Pass `prefix` to address a backbone nested
 inside a larger `@compact` model. Pass `in_chans != 3` to adapt the
-released 3-channel stem weight to the requested input channel count
-via [`adapt_input_conv`](@ref).
+released 3-channel stem weight to the requested input channel count,
+matching timm's behaviour.
 
 Conv weights and 1D vectors arrive in their Lux-natural layout already
 (via `load_safetensors_state_dict`'s default axis reversal, or `read_parity`
@@ -297,8 +297,8 @@ all have `default_num_classes = 0` and ship no pretrained head; any
 custom classifier the user adds will trigger the warning case.
 
 When `in_chans != 3`, the stem weight is adapted from the released
-3-channel checkpoint via [`adapt_input_conv`](@ref), matching timm's
-`adapt_input_conv` behaviour at load time.
+3-channel checkpoint, matching timm's `adapt_input_conv` behaviour at
+load time.
 """
 function _load_convnext(ps, st, variant::Symbol;
         in_chans::Int, num_classes::Int,
