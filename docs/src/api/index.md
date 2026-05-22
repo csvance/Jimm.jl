@@ -1,11 +1,11 @@
 ```@meta
-CurrentModule = Jimm
+CurrentModule = Luximm
 ```
 
 # API Reference
 
-Jimm.jl exposes three groups of public symbols, all re-exported from
-the top-level `Jimm` module.
+Luximm.jl exposes three groups of public symbols, all re-exported from
+the top-level `Luximm` module.
 
 | Group | Purpose | Page |
 |---|---|---|
@@ -13,20 +13,20 @@ the top-level `Jimm` module.
 | Layers | Building blocks shared across families: weight-standardized conv, channel-axis LayerNorm, Global Response Norm, and timm-equivalent initializers. | [Layers](layers.md) |
 | Interop | PyTorch and HuggingFace plumbing: HDF5 parity fixtures, `state_dict` application, axis transforms, HuggingFace Hub cache, SafeTensors loading. | [Interop](interop.md) |
 
-The top-level `Jimm` module re-exports every public symbol from
+The top-level `Luximm` module re-exports every public symbol from
 these three groups, so end users normally just call
-`using Jimm`. The submodule-qualified names (`Jimm.Interop.read_parity`,
-`Jimm.Layers.std_conv`) remain available for cases where the
+`using Luximm`. The submodule-qualified names (`Luximm.Interop.read_parity`,
+`Luximm.Layers.std_conv`) remain available for cases where the
 shorter top-level name would collide with something else in the
 caller's namespace.
 
 ## Module map
 
 ```
-Jimm
-├── Jimm.Models    # family constructors, loaders, variant tables
-├── Jimm.Layers    # std_conv, layernorm2d, grn_layer, init recipes
-└── Jimm.Interop   # parity, HF Hub, SafeTensors
+Luximm
+├── Luximm.Models    # family constructors, loaders, variant tables
+├── Luximm.Layers    # std_conv, layernorm2d, grn_layer, init recipes
+└── Luximm.Interop   # parity, HF Hub, SafeTensors
 ```
 
 Internal block constructors (`resnet_basic_block`,

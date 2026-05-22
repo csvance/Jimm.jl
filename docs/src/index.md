@@ -1,8 +1,8 @@
 ```@meta
-CurrentModule = Jimm
+CurrentModule = Luximm
 ```
 
-# Jimm.jl
+# Luximm.jl
 
 Julia ports of [`timm`](https://github.com/huggingface/pytorch-image-models)
 (PyTorch Image Models, by Ross Wightman) backbones for
@@ -12,7 +12,7 @@ homage to the project we port from.
 
 ## Status
 
-Most of Jimm was written by AI agents driving the porting workflow
+Most of Luximm was written by AI agents driving the porting workflow
 encoded in `.claude/skills/timm-to-lux/`, with human review at each
 phase and the parity tests as the correctness backstop. The code is
 already being used in real projects, so the registered backbones work
@@ -34,7 +34,7 @@ input shapes). File issues and PRs.
 ## At a glance
 
 ```julia
-using Jimm, Lux, Random
+using Luximm, Lux, Random
 
 # ResNet50 with the trained 1000-class ImageNet head.
 # `create_pretrained` is family-agnostic; the symbol selects the

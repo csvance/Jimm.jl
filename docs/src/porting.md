@@ -1,11 +1,11 @@
 ```@meta
-CurrentModule = Jimm
+CurrentModule = Luximm
 ```
 
 # Porting Backbones
 
 This page is a contributor guide for adding a new `timm` backbone to
-Jimm.jl. The bar is numeric parity with `timm` on the released
+Luximm.jl. The bar is numeric parity with `timm` on the released
 weights; the rest is mechanics.
 
 If you are using Claude Code to drive the port, the same workflow is
@@ -80,7 +80,7 @@ bisect it with the per-stage parity fixtures described below.
 first. It exercises most of the shared utilities in one place:
 
 - Pre-activation residual blocks.
-- Weight-standardized convolutions (`std_conv` from `Jimm.Layers`).
+- Weight-standardized convolutions (`std_conv` from `Luximm.Layers`).
 - GroupNorm with explicit epsilon.
 - `adapt_input_conv` stem adaptation for non-RGB inputs.
 - The full mapping/loader pattern that every other family follows.
@@ -103,7 +103,7 @@ template.
 The fixture stores `/input` (deterministic random input, PyTorch NCHW
 layout), `/state_dict/<key>` for every PyTorch parameter, and
 `/output/features` plus optional `/output/logits`. The Julia side
-reads it via `Jimm.Interop.read_parity`, which reverses the axes so
+reads it via `Luximm.Interop.read_parity`, which reverses the axes so
 tensors arrive in Lux's WHCN layout.
 
 Run the dump once per variant:
@@ -127,7 +127,7 @@ fixtures are the bisection tool when the end-to-end test fails.
 Do not re-implement anything that already lives under `src/Layers/`
 or `src/Interop/`. The load-bearing helpers and what they do:
 
-- `Jimm.Interop.read_parity` returns `(input, state_dict, output)` as
+- `Luximm.Interop.read_parity` returns `(input, state_dict, output)` as
   `Float32` arrays in WHCN layout (the reverse of PyTorch's logical
   NCHW). Conv weight `(out, in, kH, kW)` becomes `(kW, kH, in,
   out)`, which is exactly Lux's Conv layout. For most parameters the
@@ -136,7 +136,7 @@ or `src/Interop/`. The load-bearing helpers and what they do:
   setting leaves from the dict. Mapping entries are triples
   `(pytorch_key, lux_path_tuple, transform)`. Non-mutating; bind the
   result.
-- `Jimm.Interop.axis_reverse` and `Jimm.Interop.pyperm` are ready-made
+- `Luximm.Interop.axis_reverse` and `Luximm.Interop.pyperm` are ready-made
   transforms for the cases where the HDF5-natural layout is not what
   you want, typically Dense weights and LayerNorm scale/bias.
 - [`std_conv`](@ref), [`layernorm2d`](@ref), [`grn_layer`](@ref) are
@@ -263,11 +263,11 @@ End-to-end first, against the fixture's `state_dict` (not the HF
 download) so the test isolates the forward pass:
 
 ```julia
-data = Jimm.Interop.read_parity(_FIXTURE_PATH)
+data = Luximm.Interop.read_parity(_FIXTURE_PATH)
 model = <family>(variant; in_chans = 3, num_classes = 0)
 ps, st = Lux.setup(Xoshiro(0), model)
 st = Lux.testmode(st)
-ps = Jimm.Interop.apply_state_dict(ps, data.state_dict,
+ps = Luximm.Interop.apply_state_dict(ps, data.state_dict,
                                    <family>_mapping(data.state_dict, variant))
 y, _ = model(data.input, ps, st)
 expected = data.output["features"]

@@ -24,7 +24,7 @@ usage() {
 Usage: $0 <variant_key> [--in-chans N] [--force]
 
 Runs the Julia parity test for a single backbone variant, dumping the timm
-reference fixture first if it is missing. Variant keys match Jimm's
+reference fixture first if it is missing. Variant keys match Luximm's
 <FAMILY>_VARIANTS table (the timm name with the dot rewritten as
 underscore), e.g. convnextv2_atto_fcmae, resnetv2_50x1_bit_goog_in21k.
 EOF

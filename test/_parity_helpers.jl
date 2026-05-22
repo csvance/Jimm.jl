@@ -19,11 +19,11 @@ end
 
 # HDF5 fixtures store PyTorch-layout tensors; read_parity reverses axes to
 # Lux-natural (W, H, C, N) for features and (K, N) for logits, which matches
-# every family's Jimm output layout.
+# every family's Luximm output layout.
 function load_parity_fixture(variant::Symbol; in_chans::Int = 3)
     path = parity_fixture_path(variant; in_chans = in_chans)
     isfile(path) || return nothing
-    return Jimm.Interop.read_parity(path)
+    return Luximm.Interop.read_parity(path)
 end
 
 hf_offline() = get(ENV, "HF_OFFLINE", "") == "1"

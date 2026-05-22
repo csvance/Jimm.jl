@@ -1,29 +1,29 @@
 ```@meta
-CurrentModule = Jimm
+CurrentModule = Luximm
 ```
 
 # Getting Started
 
-This page walks through Jimm.jl end-to-end: installing the package,
+This page walks through Luximm.jl end-to-end: installing the package,
 loading a pretrained ResNet50 and predicting an ImageNet class,
 switching to feature-extractor mode, working with non-RGB inputs, and
 the HuggingFace cache layout.
 
 ## Installation
 
-Jimm targets Julia 1.12 or newer and is registered in the Julia
+Luximm targets Julia 1.12 or newer and is registered in the Julia
 General registry, so it installs with `Pkg.add` directly:
 
 ```julia
 using Pkg
-Pkg.add("Jimm")
+Pkg.add("Luximm")
 ```
 
 For local hacking, clone the repo and `Pkg.develop` the path:
 
 ```julia
 using Pkg
-Pkg.develop(path = "/path/to/Jimm.jl")
+Pkg.develop(path = "/path/to/Luximm.jl")
 ```
 
 The Python sidecar (`pyproject.toml` with `timm`, `torch`, `h5py`,
@@ -35,7 +35,7 @@ setup.
 ## Loading ResNet50 and predicting an ImageNet class
 
 ```julia
-using Jimm, Lux, Random
+using Luximm, Lux, Random
 
 # `create_pretrained` is family-agnostic; the symbol selects the
 # family. It returns the model and a closure that loads the released
@@ -82,7 +82,7 @@ A few things worth noting in the snippet:
   model](#composing-into-a-larger-model) below.
 
 To map the top-5 indices to class names, pair the variant with any
-ImageNet class label list (Jimm ships none of its own; the timm
+ImageNet class label list (Luximm ships none of its own; the timm
 `imagenet_classes.txt` works directly because the class index ordering
 is unchanged).
 
@@ -106,7 +106,7 @@ The output is shaped `(W/32, H/32, num_features, N)` for every
 registered backbone. For ResNet50 that is `(7, 7, 2048, 1)` on a
 224x224 input; for `convnextv2_atto_fcmae` it is `(7, 7, 320, 1)`.
 
-Use this mode when you want to attach Jimm's pretrained encoder to
+Use this mode when you want to attach Luximm's pretrained encoder to
 your own downstream head (regression, segmentation, neural ODE, etc.)
 without carrying around the 1000-class classifier the released
 checkpoint would otherwise initialize.

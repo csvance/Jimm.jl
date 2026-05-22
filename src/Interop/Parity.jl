@@ -131,7 +131,7 @@ pyperm(perm) = a -> Float32.(permutedims(a, perm))
     as_channel4d(a) -> Array
 
 Reshape a `(C,)` PyTorch norm parameter into `(1, 1, C, 1)`, the shape used
-by `Lux.LayerNorm((1, 1, C); dims = 3)` (and so by `Jimm.Layers.layernorm2d`)
+by `Lux.LayerNorm((1, 1, C); dims = 3)` (and so by `Luximm.Layers.layernorm2d`)
 for its `:scale` / `:bias` leaves on WHCN 4D inputs.
 """
 as_channel4d(a::AbstractArray) = reshape(Float32.(a), 1, 1, :, 1)

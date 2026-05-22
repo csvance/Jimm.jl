@@ -10,7 +10,7 @@
 #   `<cache>/models--<org>--<name>/blobs/<etag>` with a relative symlink
 #   at `<cache>/models--<org>--<name>/snapshots/<commit>/<filename>` and
 #   the commit recorded in `refs/<revision>`. This means the same blob
-#   is shared between Jimm and any `timm`/`huggingface_hub` install on
+#   is shared between Luximm and any `timm`/`huggingface_hub` install on
 #   the same machine: whichever tool downloads first, the other sees a
 #   cache hit.
 #
@@ -58,7 +58,7 @@ env-var precedence:
 2. otherwise `\$HF_HOME/hub` if `HF_HOME` is set,
 3. otherwise `~/.cache/huggingface/hub`.
 
-Files downloaded into this directory by Jimm are visible to `timm` /
+Files downloaded into this directory by Luximm are visible to `timm` /
 `huggingface_hub`, and vice versa.
 """
 function hf_hub_cache_dir()

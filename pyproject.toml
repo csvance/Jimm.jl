@@ -1,7 +1,7 @@
 [project]
 name = "jimm-tools"
 version = "0.0.1"
-description = "Python sidecar for Jimm.jl: dumps timm parity fixtures, validates safetensors round-trips."
+description = "Python sidecar for Luximm.jl: dumps timm parity fixtures, validates safetensors round-trips."
 requires-python = ">=3.12"
 dependencies = [
     "timm>=1.0.24",

@@ -26,7 +26,7 @@ export cli_main
 # ── CLI ──────────────────────────────────────────────────────────────
 
 const USAGE = """
-jimm-ci — interactive runner for the self-hosted Jimm.jl CI
+jimm-ci — interactive runner for the self-hosted Luximm.jl CI
 
 USAGE
     jimm-ci                  launch the TUI (default)

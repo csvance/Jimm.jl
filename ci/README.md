@@ -1,6 +1,6 @@
-# Jimm.jl self-hosted CI
+# Luximm.jl self-hosted CI
 
-`jimm-ci` is an interactive Julia TUI that runs the Jimm.jl parity test
+`jimm-ci` is an interactive Julia TUI that runs the Luximm.jl parity test
 suite on a self-hosted Linux VM and reports results back to GitHub via
 the Checks API. There is **no webhook listener, no public endpoint, and
 no domain name involved**, every run is started by the maintainer, by
@@ -9,12 +9,12 @@ hand, over SSH.
 ## Why a custom, self-hosted runner
 
 Hosted CI providers (GitHub Actions, Buildkite cloud, etc.) are the
-obvious default, and were ruled out on purpose. Jimm.jl's test suite is
+obvious default, and were ruled out on purpose. Luximm.jl's test suite is
 a *parity* suite: every variant of every backbone is checked against
 the corresponding `timm` PyTorch reference, which means each run needs
 two large, expensive-to-produce artifacts:
 
-1. **Reference weights.** Jimm covers many ResNet, ViT, and adjacent
+1. **Reference weights.** Luximm covers many ResNet, ViT, and adjacent
    variants. The matching `timm` checkpoints on HuggingFace add up to
    hundreds of gigabytes across the supported variant set. Pulling
    them fresh on every CI run would saturate egress, blow past
@@ -84,8 +84,8 @@ plus master commits from the last 30 days that have no completed
  ┌──────────────────────────── jimm-ci ──────────────────────────────┐
  │ 4 pending                                                          │
  │┌── queue ──────────────────────────────────────────────────────────│
- ││   2026-05-21 09:14  PR      #42 [owner/Jimm.jl]   Add InceptionNeXt   [infra,bit,…]
- ││ ⚠ 2026-05-21 08:50  PR      #43 [contrib/Jimm.jl] Fix typo            [infra]
+ ││   2026-05-21 09:14  PR      #42 [owner/Luximm.jl]   Add InceptionNeXt   [infra,bit,…]
+ ││ ⚠ 2026-05-21 08:50  PR      #43 [contrib/Luximm.jl] Fix typo            [infra]
  ││   2026-05-21 04:21  master  master @ 3aa12b3                          [infra,bit,…]
  ││   2026-05-20 14:02  master  master @ 097de48                          [infra,bit,…]
  │└───────────────────────────────────────────────────────────────────│
@@ -195,7 +195,7 @@ not env strings.
 | `JIMM_CI_INSTALLATION_ID` | yes | — | App installation on the repo |
 | `JIMM_CI_PRIVATE_KEY_FILE` | yes | — | Path to App PEM |
 | `JIMM_CI_REPO_OWNER` | yes | — | e.g. `cvance` |
-| `JIMM_CI_REPO_NAME` | yes | — | e.g. `Jimm.jl` |
+| `JIMM_CI_REPO_NAME` | yes | — | e.g. `Luximm.jl` |
 | `JIMM_CI_STATE_DIR` | no | `/var/lib/jimm-ci` | Mirror, worktrees, logs, depot |
 | `JIMM_CI_HF_TOKEN_FILE` | no | — | HuggingFace token for parity weights |
 | `JIMM_CI_JULIA` | no | `/usr/local/bin/julia` | Julia binary path |
@@ -238,13 +238,13 @@ ln -sf /home/ci/.juliaup/bin/julia /usr/local/bin/julia
 
 ```bash
 install -d -o ci -g ci /opt/jimm-ci
-sudo -u ci git clone https://github.com/<OWNER>/Jimm.jl.git /opt/jimm-ci/Jimm.jl
+sudo -u ci git clone https://github.com/<OWNER>/Luximm.jl.git /opt/jimm-ci/Luximm.jl
 
 # Install JimmCI via Pkg.Apps. This drops a launcher into ~ci/.julia/bin/
 # (Julia's user app directory) and pulls in Tachikoma/HTTP/JSON3/etc.
 sudo -u ci julia -e '
     using Pkg
-    Pkg.Apps.develop(path = "/opt/jimm-ci/Jimm.jl/ci/JimmCI")
+    Pkg.Apps.develop(path = "/opt/jimm-ci/Luximm.jl/ci/JimmCI")
 '
 
 install -d -o ci -g ci \
@@ -263,7 +263,7 @@ ln -sf /home/ci/.julia/bin/jimm-ci /usr/local/bin/jimm-ci
 `jimm-ci` is enough to redeploy — no re-instantiate step.
 
 If you'd rather pin a tagged release than track the cloned checkout,
-use `Pkg.Apps.add(url = "https://github.com/<OWNER>/Jimm.jl",
+use `Pkg.Apps.add(url = "https://github.com/<OWNER>/Luximm.jl",
 subdir = "ci/JimmCI")` instead. The launcher writes to
 `~/.julia/bin/jimm-ci` either way.
 
@@ -331,7 +331,7 @@ export JIMM_CI_INSTALLATION_ID=7890123
 export JIMM_CI_PRIVATE_KEY_FILE=/etc/jimm-ci/app.pem
 export JIMM_CI_HF_TOKEN_FILE=/etc/jimm-ci/hf-token
 export JIMM_CI_REPO_OWNER=<owner>
-export JIMM_CI_REPO_NAME=Jimm.jl
+export JIMM_CI_REPO_NAME=Luximm.jl
 export JIMM_CI_JULIA=/usr/local/bin/julia
 export UV_PROJECT_ENVIRONMENT=/var/lib/jimm-ci/python-env
 export JULIA_NUM_THREADS=4
@@ -400,7 +400,7 @@ you need the full log.
 ### Redeploy
 
 ```bash
-ssh ci@<vm> 'sudo -u ci git -C /opt/jimm-ci/Jimm.jl pull --ff-only'
+ssh ci@<vm> 'sudo -u ci git -C /opt/jimm-ci/Luximm.jl pull --ff-only'
 ```
 
 No service to restart; because `Pkg.Apps.develop` tracks the clone, the
@@ -408,7 +408,7 @@ next `jimm-ci` invocation picks up the new code automatically. If
 `ci/JimmCI/Project.toml` gained a new dependency, also run:
 
 ```bash
-ssh ci@<vm> 'sudo -u ci julia -e "using Pkg; Pkg.Apps.develop(path = \"/opt/jimm-ci/Jimm.jl/ci/JimmCI\")"'
+ssh ci@<vm> 'sudo -u ci julia -e "using Pkg; Pkg.Apps.develop(path = \"/opt/jimm-ci/Luximm.jl/ci/JimmCI\")"'
 ```
 
 which re-resolves and regenerates the launcher.
@@ -451,7 +451,7 @@ new model family is added under `src/Models/<Family>/` with a matching
 * The VM never accepts inbound connections from anyone but you over SSH.
   GitHub talks to it only through outbound HTTPS calls made by the CLI.
 * Pull requests from forks are surfaced in the TUI with a `⚠` glyph
-  and the head repo path (e.g. `[contrib/Jimm.jl]`). Approving one is
+  and the head repo path (e.g. `[contrib/Luximm.jl]`). Approving one is
   a two-step action: `Enter` / `y` opens a confirmation modal naming
   the fork and head SHA, and the build only starts after a second `y`.
   Same-repo PRs and master commits skip the modal. The structural

@@ -8,7 +8,7 @@
 #      HEAD lookup fails (e.g. offline).
 
 using Test
-using Jimm
+using Luximm
 
 @testset "hf_hub_download (HF cache layout)" begin
     if get(ENV, "HF_OFFLINE", "") == "1"
