@@ -14,6 +14,7 @@ const _SHARED_EXACT = Set([
     "Project.toml",
     "Manifest.toml",
     "test/runtests.jl",
+    "test/_ci_driver.jl",
     "test/_filter.jl",
 ])
 
