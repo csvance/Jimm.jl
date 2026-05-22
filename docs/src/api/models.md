@@ -88,6 +88,17 @@ ConvNeXtVariant
 CONVNEXT_VARIANTS
 ```
 
+!!! warning "DINOv3 weights are not Apache 2.0"
+    The four `:convnext_*_dinov3_lvd1689m` encoders are released by Meta
+    under the
+    [DINOv3 License](https://ai.meta.com/resources/models-and-libraries/dinov3-license/),
+    which imposes obligations on outputs derived from the weights that
+    differ from a standard permissive open-source license. Read the
+    license before using the weights for any downstream task. This
+    applies only to the weights; the Julia code in this package is
+    Apache 2.0. The Facebook AI `.fb_*` checkpoints carry the upstream
+    Apache 2.0 license and are unaffected.
+
 ### Registered variants
 
 ```@eval
@@ -108,6 +119,15 @@ Markdown.parse(String(take!(io)))
 ConvNeXtV2Variant
 CONVNEXTV2_VARIANTS
 ```
+
+!!! warning "ConvNeXtV2 weights are non-commercial"
+    Every ConvNeXtV2 checkpoint is released by Meta under
+    [Creative Commons Attribution-NonCommercial 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
+    **Commercial use of these weights is not permitted.** This applies
+    to every row in the variant table below and is independent of
+    Jimm.jl's own Apache 2.0 code license. If commercial use matters,
+    BiT (Apache 2.0) or the ConvNeXt v1 `.fb_*` checkpoints (Apache 2.0)
+    are the alternatives.
 
 ### Registered variants
 
