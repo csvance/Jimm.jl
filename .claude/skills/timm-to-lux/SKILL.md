@@ -114,8 +114,8 @@ But do not add `:resnet101` and `:resnet152` to the dict until `:resnet50` passe
 
 - `in_chans::Int` (default matches `timm`'s default for the family, typically 3).
 - `num_classes::Int = 0`. Zero means the classifier head is omitted and the forward returns features.
-- `pretrained::Bool = false`. When true, the constructor calls `Lux.setup` then immediately threads the result through the matching `load_<name>_pretrained` and returns the loaded `ps` alongside the model. The forward block itself does not change.
 - Anything else the architecture genuinely exposes: `drop_rate`, `stem_type`, etc. Do not invent knobs for parity completeness; only mirror what `timm.create_model` accepts.
+- The family constructor itself never takes `pretrained`. Weight loading is a separate `load_<family>_pretrained(ps, st, variant; ...) -> (ps, st)` function, reachable through the family-agnostic `load_pretrained(ps, st, variant; ...)` dispatcher in `src/Models/Models.jl`. Keep the constructor pure so tests can build random-init models without touching the network and so the model composes cleanly inside a larger `@compact` block.
 
 ## 5. Phase 4: autodiff- and GPU-safe code by default
 
@@ -131,7 +131,7 @@ The forward should *look* like math: a sequence of broadcasts and tensor ops wit
 
 ## 6. Phase 5: HuggingFace `.safetensors` for the production weight path
 
-Parity fixtures bake the `state_dict` into the HDF5 file so the test can run offline. Production users should not pay that round trip; they want to call `model = resnet(:resnet50; pretrained = true)` and have the weights stream in from HuggingFace.
+Parity fixtures bake the `state_dict` into the HDF5 file so the test can run offline. Production users should not pay that round trip; they build the model with `create_model(:resnet50)`, run `Lux.setup`, then stream the weights in from HuggingFace via `load_pretrained(ps, st, :resnet50; ...)`.
 
 Steps:
 
@@ -160,37 +160,44 @@ Steps:
 
    The token is optional. Public `timm` weights download anonymously; the header only matters for gated or private repos. Cache under `joinpath(@__DIR__, "..", "weights", "<file>")` to match the BiT convention, or under `~/.cache/<pkg>/` if the host package prefers a user-scoped cache.
 
-4. **Define one loader per variant, parallel to `load_bit_resnetv2_50x1`:**
+4. **Define one loader per family with the shared signature `(ps, st, variant; kwargs...) -> (ps, st)`:**
 
    ```julia
-   function load_resnet50_pretrained(ps; prefix::Tuple{Vararg{Symbol}} = ())
-       path = _hf_download(RESNET50_URL, _weights_cache("resnet50.safetensors"))
-       st = SafeTensors.load(path)
-       sd = Dict{String, Array{Float32}}(k => Float32.(st[k]) for k in keys(st))
-       return apply_state_dict(ps, sd, resnet50_mapping(sd; prefix = prefix))
+   function load_resnet_pretrained(ps, st, variant::Symbol;
+           num_classes::Int = 0, in_chans::Int = 3,
+           revision::AbstractString = "main",
+           cache_dir::AbstractString = hf_hub_cache_dir(),
+           prefix::Tuple{Vararg{Symbol}} = ())
+       cfg = RESNET_VARIANTS[variant]
+       path = hf_hub_download(cfg.hf_repo, "model.safetensors";
+                              revision = revision, cache_dir = cache_dir)
+       sd = load_safetensors_state_dict(path)
+       ps = apply_state_dict(ps, sd, resnet_mapping(sd, variant; prefix = prefix))
+       # If the family has BatchNorm running stats, also apply them into `st`.
+       return ps, st
    end
    ```
+
+   Stateless families (GroupNorm / LayerNorm) just thread `st` through
+   unchanged. ResNet-style families mutate `st` via a parallel
+   `<family>_state_mapping` and `apply_state_dict`. The uniform return
+   shape is what lets `load_pretrained(ps, st, variant)` dispatch on the
+   symbol.
 
    **Axis-order gotcha.** `SafeTensors.load` returns arrays in PyTorch logical axis order (NCHW for activations, `(out, in, kH, kW)` for conv weights), not the reversed layout that `read_parity` produces from HDF5. Two acceptable resolutions:
    - **Recommended:** normalize the SafeTensors dict to the HDF5-natural reversed layout once at load time by applying `axis_reverse` to every tensor whose Julia layout in `apply_state_dict` is reversed. Then the same `<model>_mapping` works for both fixture-driven tests and production loading.
    - **Alternative:** keep two mapping functions, one for fixtures and one for safetensors. More code; easier to silently drift.
 
-5. **`pretrained = true` plumbing.** The model constructor returns the same `@compact` block regardless. A small wrapper at the call site does setup and the load:
-
-   ```julia
-   function build_resnet(family::Symbol; in_chans::Int = 3, num_classes::Int = 0,
-                        pretrained::Bool = false, rng = Random.default_rng())
-       model = resnet(family; in_chans, num_classes)
-       ps, st = Lux.setup(rng, model)
-       if pretrained
-           loader = _PRETRAINED_LOADERS[family]
-           ps = loader(ps)
-       end
-       return model, ps, st
-   end
-   ```
-
-   Keep the constructor and the weight loading separate. Mixing them inside `@compact` makes the model non-reusable in test code that wants random init.
+5. **Family-agnostic dispatch is already wired.** Once the family's
+   `<FAMILY>_VARIANTS` dict and `load_<family>_pretrained` exist, the
+   variant becomes reachable through `create_model(variant; ...)` and
+   `load_pretrained(ps, st, variant; ...)` in `src/Models/Models.jl`
+   automatically — no extra plumbing per port. Both entry points are
+   type-stable on the Union axis (`create_model` always returns just
+   the model, `load_pretrained` always returns `(ps, st)`). Keep the
+   constructor and the weight loading separate so test code can build
+   random-init models without network access and so the model
+   composes cleanly inside a larger `@compact` block.
 
 ## 7. Phase 6: verify parity, narrow on divergence
 

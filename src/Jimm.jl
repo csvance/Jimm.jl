@@ -26,6 +26,7 @@ export bit_resnetv2, bit_resnetv2_mapping, load_bit_resnetv2_pretrained,
        convnextv2, convnextv2_mapping, load_convnextv2_pretrained,
        ConvNeXtV2Variant, CONVNEXTV2_VARIANTS,
        convnext, convnext_mapping, load_convnext_pretrained,
-       ConvNeXtVariant, CONVNEXT_VARIANTS
+       ConvNeXtVariant, CONVNEXT_VARIANTS,
+       create_model, load_pretrained
 
 end # module Jimm

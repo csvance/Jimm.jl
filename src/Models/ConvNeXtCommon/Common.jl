@@ -20,8 +20,8 @@
 #                                      `stem.1` (Conv + LayerNorm2d)
 #   - `push_downsample_mapping!`       mapping-entry builder for one stage's
 #                                      `downsample.0`, `downsample.1`
-#   - `push_head_mapping!`             mapping-entry builder for
-#                                      `head.norm`, `head.fc`
+#   - `push_head_norm_mapping!`        mapping-entry builder for `head.norm`
+#   - `push_head_fc_mapping!`          mapping-entry builder for `head.fc`
 #
 # Everything here is shared *code*, not shared *weights*: v1 and v2 still
 # load their own checkpoints from their own HF repos under their own
@@ -158,19 +158,30 @@ function push_downsample_mapping!(mapping::Vector,
 end
 
 """
-    push_head_mapping!(mapping, prefix) -> mapping
+    push_head_norm_mapping!(mapping, prefix) -> mapping
 
-Append the four `(pytorch_key, lux_path, transform)` triples for the
-classifier head (`head.norm` = LayerNorm2d, `head.fc` = Linear → Lux Dense)
-to `mapping`. The head.fc weight came from `nn.Linear` (2D): after
-axis-reverse from PyTorch's `(out, in)` it's `(in, out)`, but Lux `Dense`
-stores weight as `(out, in)`, so `axis_reverse` is applied to transpose it.
+Append the two `head.norm.*` triples (LayerNorm2d) to `mapping`. The
+LayerNorm dim depends only on the feature width, not `num_classes`, so
+this can be loaded even when the user built the model with a custom
+classifier dimension.
 """
-function push_head_mapping!(mapping::Vector, prefix::Tuple{Vararg{Symbol}})
+function push_head_norm_mapping!(mapping::Vector, prefix::Tuple{Vararg{Symbol}})
     push!(mapping, ("head.norm.weight",
                     (prefix..., :head_norm, :scale), as_channel4d))
     push!(mapping, ("head.norm.bias",
                     (prefix..., :head_norm, :bias),  as_channel4d))
+    return mapping
+end
+
+"""
+    push_head_fc_mapping!(mapping, prefix) -> mapping
+
+Append the two `head.fc.*` triples (Linear → Lux Dense) to `mapping`.
+The `head.fc` weight came from `nn.Linear` (2D): after axis-reverse
+from PyTorch's `(out, in)` it's `(in, out)`, but Lux `Dense` stores
+weight as `(out, in)`, so `axis_reverse` is applied to transpose it.
+"""
+function push_head_fc_mapping!(mapping::Vector, prefix::Tuple{Vararg{Symbol}})
     push!(mapping, ("head.fc.weight",
                     (prefix..., :head_fc, :weight),  axis_reverse))
     push!(mapping, ("head.fc.bias",

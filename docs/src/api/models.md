@@ -4,12 +4,40 @@ CurrentModule = Jimm
 
 # Models
 
-Every model family follows the same three-call user interface:
+## Family-agnostic interface
+
+Every variant is built and loaded through the symbol-dispatched
+`create_model` / `load_pretrained` pair. The canonical pattern is the
+three-step idiom:
+
+```julia
+model = create_model(variant; in_chans, num_classes)
+ps, st = Lux.setup(rng, model)
+ps, st = load_pretrained(ps, st, variant)
+```
+
+`create_model` returns a bare `@compact` model with no parameters or
+state. `load_pretrained` reads `in_chans` and `num_classes` directly
+from the model's stem and head shapes, so you only specify them once
+at the constructor. Keeping the constructor pure means it composes
+inside a larger `@compact` block without redundant `Lux.setup` work —
+see [Getting Started](../getting_started.md#composing-into-a-larger-model)
+for the nested pattern with `prefix`.
+
+```@docs
+create_model
+load_pretrained
+```
+
+## Per-family interface
+
+Each family also exposes a direct constructor and loader, sharing the
+same `(ps, st, variant; kwargs...) -> (ps, st)` shape:
 
 ```julia
 model = <family>(variant; in_chans, num_classes)
 ps, st = Lux.setup(rng, model)
-ps = load_<family>_pretrained(ps, variant; num_classes, in_chans)
+ps, st = load_<family>_pretrained(ps, st, variant)
 ```
 
 `<family>` is one of `resnet`, `bit_resnetv2`, `convnext`,

@@ -265,14 +265,16 @@ function _resnet_block_path(stage::Int, block::Int)
 end
 
 """
-    resnet_mapping(state_dict, variant; num_classes=0, in_chans=3, prefix=())
+    resnet_mapping(state_dict, variant;
+                    load_classifier=false, in_chans=3, prefix=())
 
 Build the parameter mapping for a classic timm ResNet state dict.
 BatchNorm running statistics are state, not params; use
-[`resnet_state_mapping`](@ref) for those.
+[`resnet_state_mapping`](@ref) for those. When `load_classifier=true`,
+the `fc.*` keys are also included.
 """
 function resnet_mapping(state_dict::Dict, variant::Symbol;
-        num_classes::Int = 0,
+        load_classifier::Bool = false,
         in_chans::Int = 3,
         prefix::Tuple{Vararg{Symbol}} = ())
     cfg = get(RESNET_VARIANTS, variant) do
@@ -316,7 +318,7 @@ function resnet_mapping(state_dict::Dict, variant::Symbol;
         end
     end
 
-    if num_classes > 0
+    if load_classifier
         push!(mapping, ("fc.weight", (prefix..., :fc, :weight), axis_reverse))
         push!(mapping, ("fc.bias", (prefix..., :fc, :bias), identity))
     end
@@ -394,11 +396,11 @@ function apply_resnet_state_dict(st, state_dict::Dict{String, <:AbstractArray},
 end
 
 function _validate_resnet_consumed_keys(state_dict::Dict, param_mapping,
-                                         state_mapping; num_classes::Int = 0)
+                                         state_mapping; load_classifier::Bool = false)
     consumed = Set(first(m) for m in param_mapping)
     union!(consumed, Set(first(m) for m in state_mapping))
     ignored = Set(k for k in keys(state_dict) if endswith(k, ".num_batches_tracked"))
-    if num_classes == 0
+    if !load_classifier
         push!(ignored, "fc.weight")
         push!(ignored, "fc.bias")
     end
@@ -408,17 +410,22 @@ function _validate_resnet_consumed_keys(state_dict::Dict, param_mapping,
 end
 
 """
-    load_resnet_pretrained(ps, st, variant; num_classes=0, in_chans=3,
-                           revision="main", cache_dir=hf_hub_cache_dir(),
-                           prefix=()) -> (ps, st)
+    load_resnet_pretrained(ps, st, variant; revision="main",
+                           cache_dir=hf_hub_cache_dir(), prefix=()) -> (ps, st)
 
 Resolve and load a timm ResNet `.safetensors` checkpoint from HuggingFace.
 Returns both params and state because BatchNorm running statistics live in
 Lux state.
+
+`in_chans` and `num_classes` are inferred from `ps`. Three cases:
+
+- No `fc` slot (model built with `num_classes = 0`): backbone-only load.
+- `fc` matches the variant's `default_num_classes`: full load.
+- `fc` exists but its class count differs: backbone loads, `@warn` is
+  emitted, and the user's custom classifier is left at its `Lux.setup`
+  random initialization.
 """
 function load_resnet_pretrained(ps, st, variant::Symbol;
-        num_classes::Int = 0,
-        in_chans::Int = 3,
         revision::AbstractString = "main",
         cache_dir::AbstractString = hf_hub_cache_dir(),
         prefix::Tuple{Vararg{Symbol}} = ())
@@ -426,19 +433,23 @@ function load_resnet_pretrained(ps, st, variant::Symbol;
         error("Unknown ResNet variant: $variant. Known variants: " *
               "$(sort(collect(keys(RESNET_VARIANTS))))")
     end
-    if num_classes != 0 && num_classes != cfg.default_num_classes
-        error("variant $variant ships $(cfg.default_num_classes)-class weights; " *
-              "got num_classes=$num_classes. Pass num_classes=0 (features only) " *
-              "or num_classes=$(cfg.default_num_classes).")
+    sub = _navigate(ps, prefix)
+    in_chans = size(sub.conv1.weight, 3)
+    head_classes = haskey(sub, :fc) ? size(sub.fc.weight, 1) : 0
+    load_classifier = head_classes > 0 && head_classes == cfg.default_num_classes
+    if head_classes > 0 && head_classes != cfg.default_num_classes
+        @warn "variant $variant ships $(cfg.default_num_classes)-class pretrained weights, " *
+              "but the model has a $head_classes-class head. Loading the backbone only; " *
+              "the classifier head is left at its Lux.setup random initialization for you to train."
     end
     path = hf_hub_download(cfg.hf_repo, "model.safetensors";
                             revision = revision, cache_dir = cache_dir)
     sd = load_safetensors_state_dict(path)
-    param_mapping = resnet_mapping(sd, variant; num_classes = num_classes,
+    param_mapping = resnet_mapping(sd, variant; load_classifier = load_classifier,
                                     in_chans = in_chans, prefix = prefix)
     state_mapping = resnet_state_mapping(sd, variant; prefix = prefix)
     _validate_resnet_consumed_keys(sd, param_mapping, state_mapping;
-                                   num_classes = num_classes)
+                                   load_classifier = load_classifier)
     ps = apply_state_dict(ps, sd, param_mapping)
     st = apply_resnet_state_dict(st, sd, state_mapping)
     return ps, st
