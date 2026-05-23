@@ -122,6 +122,7 @@ released 3-channel weight at load time, matching timm's
 model, load = create_pretrained(:convnextv2_atto_fcmae; in_chans = 1)
 ps, st = Lux.setup(Xoshiro(0), model)
 ps, st = load(ps, st)
+st = Lux.testmode(st)                     # BatchNorm/Dropout in eval mode
 
 x = randn(Float32, 224, 224, 1, 1)
 features, _ = model(x, ps, st)            # (7, 7, 320, 1)
