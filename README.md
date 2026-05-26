@@ -4,6 +4,7 @@
 <div align="center">
 
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://csvance.github.io/Luximm.jl/dev/)
+[![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://csvance.github.io/Luximm.jl/stable/)
 [![CI](https://img.shields.io/github/checks-status/csvance/Luximm.jl/master?label=CI)](https://github.com/csvance/Luximm.jl/commits/master)
 
 </div>
