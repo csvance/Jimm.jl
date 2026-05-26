@@ -157,8 +157,72 @@ ps, st = load_backbone(ps, st)
 The mapping function prefixes every leaf path with `prefix...`, so
 `apply_state_dict` overwrites just the `ps.backbone.*` and `st.backbone.*`
 subtrees. Anything you added (`:head`, sibling slots, deeper nestings)
-keeps its `Lux.setup` initialization. Deeper nestings chain symbols:
-`prefix = (:encoder, :backbone)`.
+keeps its `Lux.setup` initialization.
+
+### Multiple backbones of the same variant
+
+Each `create_pretrained` call returns its own closure that captures its
+own `prefix`, so two backbones of the same variant compose by giving
+them different prefixes. The two closures are independent and write
+into disjoint subtrees of `ps` and `st`:
+
+```julia
+backbone_a, load_a = create_pretrained(:resnet50_a1_in1k;
+    num_classes = 0, prefix = (:resnet50_a,))
+backbone_b, load_b = create_pretrained(:resnet50_a1_in1k;
+    num_classes = 0, prefix = (:resnet50_b,))
+
+outer = @compact(
+    resnet50_a = backbone_a,
+    resnet50_b = backbone_b,
+    head       = Dense(4096 => num_outputs),
+) do x
+    feats = cat(resnet50_a(x), resnet50_b(x); dims = 3)
+    head(feats)
+end
+
+ps, st = Lux.setup(Xoshiro(0), outer)
+ps, st = load_a(ps, st)
+ps, st = load_b(ps, st)
+```
+
+Loading is opt-in per backbone. Calling `load_a` and skipping `load_b`
+leaves `resnet50_b` at its `Lux.setup` random initialization, which is
+useful when one tower is pretrained and the other is trained from
+scratch. The prefix tuple must match the slot name used in the outer
+`@compact`; otherwise the loader raises `leaf path missing key` and
+names the slot it expected to find.
+
+### Backbones nested deeper than one level
+
+The `prefix` tuple's length must match the depth of the backbone slot
+inside the outer model, because the closure prepends `prefix...` to
+every Lux leaf path. For a backbone wrapped in an inner `@compact`
+that is itself slotted into an outer `@compact`, the prefix is the
+sequence of slot names from the outermost block inward:
+
+```julia
+backbone, load_backbone = create_pretrained(:resnet50_a1_in1k;
+    num_classes = 0, prefix = (:tower, :backbone))
+
+encoder = @compact(backbone = backbone) do x
+    backbone(x)
+end
+
+outer = @compact(
+    tower = encoder,
+    head  = Dense(2048 => num_outputs),
+) do x
+    head(tower(x))
+end
+
+ps, st = Lux.setup(Xoshiro(0), outer)
+ps, st = load_backbone(ps, st)
+```
+
+The weights land in `ps.tower.backbone.*` because that is where the
+outer `Lux.setup` placed the parameter subtree. There is no length
+limit on the tuple, so the same rule scales to any depth.
 
 ## Switching families
 
