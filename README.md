@@ -59,6 +59,41 @@ feature-extractor mode (`num_classes = 0`), single-channel inputs
 (`in_chans = 1`), and the HuggingFace cache layout, see the
 [Getting Started][docs-getting-started] docs page.
 
+## Composing with a pretrained backbone
+
+Drop a feature-extractor backbone into your own `@compact` block and
+let the loader fill in just the backbone's subtree. The
+`prefix = (:backbone,)` tuple matches the slot name in the outer
+model, so `load_backbone` writes only into `ps.backbone.*` and
+`st.backbone.*`, leaving the head at its random initialization for
+downstream training:
+
+```julia
+using Luximm, Lux, NNlib, Random
+
+backbone, load_backbone = create_pretrained(:resnet50_a1_in1k;
+    num_classes = 0, prefix = (:backbone,))
+
+model = @compact(
+    backbone = backbone,
+    head     = Dense(2048 => 10),   # custom 10-class head
+) do x
+    feats  = backbone(x)                                   # (7, 7, 2048, N)
+    pooled = NNlib.meanpool(feats, size(feats)[1:2])       # (1, 1, 2048, N)
+    head(reshape(pooled, size(pooled, 3), size(pooled, 4)))
+end
+
+ps, st = Lux.setup(Xoshiro(0), model)
+ps, st = load_backbone(ps, st)
+st = Lux.testmode(st)
+
+x = randn(Float32, 224, 224, 3, 1)
+logits, _ = model(x, ps, st)                               # (10, 1)
+```
+
+For multi-backbone composition and deeper nesting patterns, see the
+[Getting Started][docs-getting-started] docs page.
+
 ## License and attribution
 
 Luximm.jl is licensed under the Apache License, Version 2.0 (see
